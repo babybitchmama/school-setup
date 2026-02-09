@@ -1,0 +1,13 @@
+{
+  "executionEnvironments": [{ "root": "./" }],
+  "reportGeneralTypeIssues": false,
+  "python": {
+    "analysis": {
+      "logLevel": "Warning",
+      "autoImportCompletions": true,
+      "diagnosticMode": "workspace",
+      "typeCheckingMode": "basic"
+    }
+  },
+  "reportIndexIssue": false
+}

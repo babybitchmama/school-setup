@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+export DIR="$HOME/.config/lesson-manager"
+export SRC="$HOME/.config/lesson-manager/config.yaml"
+
+function msg() {
+  local text="$1"
+  local div_width="80"
+
+  printf "%${div_width}s\n" ' ' | tr ' ' -
+  printf "%s\n" "$text"
+}
+
+pip3 install -r ./lesson-manager/requirements.txt
+msg "Installed required packages"
+
+cd ./lesson-manager || exit 1
+pip3 install .
+msg "Installed lesson-manager package"
+
+if [[ ! -d "$DIR" ]]; then
+  mkdir "$DIR"
+
+  msg "Created folder to store config.yaml"
+fi
+
+if [[ -e "$SRC" ]]; then
+  mv "$SRC" "$SRC.back"
+  rm -rf "$SRC"
+
+  msg "Backed up config.yaml"
+fi
+
+cp -r ./example-setup/ "$HOME"
+msg "Copied example setup to $HOME"
+
+cp -r "./example-setup/config.yaml" "$SRC"
+msg "Copied example config.yaml to $SRC"
+
+cp -r "./example-setup/config.py" "$DIR"
+msg "Copied example config.py to $DIR"
+
+cp -r "./example-setup/template.svg" "$DIR"
+msg "Copied example template.svg to $DIR"
+
+touch "$DIR/roots"
+mkdir -p "$DIR/credentials"
+mkdir -p "$DIR/objects"
+mkdir -p "$DIR/styles"

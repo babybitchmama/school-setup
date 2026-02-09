@@ -1,0 +1,69 @@
+---
+calendar_id: "primary"
+drive_folder_id: "notes_folder_id"
+
+editor: "nvim"
+terminal: "kitty"
+pdf_viewer: "zathura"
+
+create_readme_file: true
+highlight_current_course: true
+
+notes_dir: "~/example-setup"
+root: "~/example-setup/courses"
+templates_dir: "~/example-setup/template-files"
+current_course: "~/example-setup/current-course"
+sourcing_notes_template: "\\input{#1}"
+
+date_format: "%b %d %Y %a (%H:%M:%S)"
+home: "/home/user"
+user: "user"
+
+# relative to current_course
+books_dir: "books"
+figures_dir: "figures"
+assignments_dir: "assignments"
+assignment_folders:
+  bib_folder: "my-assignments/bibtex-files"
+  tex_folder: "my-assignments/latex-files"
+  yaml_folder: "my-assignments/yaml-files"
+  pdf_folder: "my-assignments/pdf-files"
+  graded_assignment: "graded-assignments"
+  online_assignment: "online-assignments"
+  solution_key: "solution-keys"
+
+rofi_options:
+  - "-markup-rows"
+  - "-kb-row-down"
+  - "Down"
+  - "-kb-custom-1"
+  - "Ctrl+n"
+  - "-no-fixed-num-lines"
+
+folders:
+  - "assignments"
+  - "assignments/graded-assignments"
+  - "assignments/online-assignments"
+  - "assignments/solution-keys"
+  - "assignments/my-assignments"
+  - "assignments/my-assignments/bibtex-files"
+  - "assignments/my-assignments/image-files"
+  - "assignments/my-assignments/latex-files"
+  - "assignments/my-assignments/pdf-files"
+  - "assignments/my-assignments/sympy-scripts"
+  - "assignments/my-assignments/yaml-files"
+  - "books"
+  - "figures"
+  - "papers"
+  - "sympy-scripts"
+  - "UltiSnips"
+
+files:
+  "assignments/my-assignments/preamble.tex": "symlink"
+  "assignments/my-assignments/Makefile": "symlink"
+  "Makefile": "symlink"
+  "preamble.tex": "symlink"
+  "UltiSnips/tex.snippets": "symlink"
+  "assignments/my-assignments/master.tex": "copy"
+  "intro.tex": "copy"
+  "master.tex": "copy"

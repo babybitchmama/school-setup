@@ -1,0 +1,11 @@
+google_auth_oauthlib
+google-api-python-client
+argparse
+pathlib
+pyyaml
+texsoup
+selenium
+beautifulsoup4
+requests
+pytz
+psutil

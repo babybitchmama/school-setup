@@ -1,0 +1,22 @@
+---
+title: "Complex Analysis I"
+topic: "Mathematics"
+class_number: 56789
+short: "MTH-411"
+author: "Hashem A. Damrah"
+term: "Spring 2025"
+faculty: "Faculty of Mathematics"
+college: "University of State"
+location: "Building Hall 102"
+year: 2025
+start_date: "Mar 31 2025 Mon (00:00:00)"
+end_date: "Jun 09 2025 Mon (00:00:00)"
+start_time: "11:00"
+end_time: "11:50"
+days: "MO,WE,FR"
+url: "https://canvas.uoregon.edu/courses/123456"
+professor:
+  name: "Professor Name"
+  email: "professor_email@university.edu"
+  phone_number: "123-456-7891"
+  office: "Building Hall 101"
