@@ -19,7 +19,18 @@ def main():
         except ValueError:
             pass
 
-    options = [f"<b>{course.info['title']}</b>" for course in courses]
+    longest_name = max(len(course.info["title"]) for course in courses)
+    options = []
+    for course in courses:
+        title = course.info['title']
+        short = course.info['short']
+
+        padded_title = title.ljust(longest_name)
+
+        column_1 = f"<b>{padded_title}</b>"
+        column_2 = f"<i><span size='smaller'>({short})</span></i>"
+
+        options.append(f"{column_1}  {column_2}")
 
     _, index, _ = utils.rofi.select(
         "Select course",
