@@ -25,6 +25,7 @@ pub fn select_from_rofi(options: Vec<String>, rofi_options: &[String]) -> Option
         let selected_option = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Some(selected_option)
     } else {
+        println!("Failed");
         None
     }
 }

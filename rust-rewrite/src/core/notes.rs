@@ -80,10 +80,7 @@ impl Note {
         let num_str = pad_number(self.number.unwrap_or(0));
         let note_file = format!("lectures/lec-{}.tex", num_str);
 
-        Command::new("sudo")
-            .arg("-u")
-            .arg("singularisart")
-            .arg("kitty")
+        Command::new("kitty")
             .arg(format!("--directory={}", current_course_dir))
             .arg(editor)
             .args(nvim_args)
