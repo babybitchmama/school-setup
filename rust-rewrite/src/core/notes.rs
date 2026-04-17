@@ -97,7 +97,6 @@ impl Note {
     }
 
     pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String {
-        // add a space in front of the number for better alignment in rofi
         let num_str = std::fmt::format(format_args!(" {:2}", self.number.unwrap_or(0)));
         let title = self.title.clone().unwrap_or_else(|| "Untitled".to_string());
 
