@@ -66,7 +66,7 @@ fn main() {
                 "assignments" => println!("Opening Rofi for assignments..."),
                 "books" => println!("Opening Rofi for books..."),
                 "courses" => courses::main(&config.root, &config.notes_dir, &config.rofi_options, &config.polybar_current_course_file),
-                "notes" => notes::main(&config.root, &config.notes_dir, &config.rofi_options, &config.date_format, &config.polybar_current_course_file),
+                "notes" => notes::main(&config.notes_dir, &config.rofi_options, &config.date_format),
                 _ => println!("Unknown Rofi action. Available actions: `assignments`, `books`, `courses`, `notes`."),
             }
         }

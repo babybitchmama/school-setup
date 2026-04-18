@@ -220,11 +220,9 @@ impl Notes {
 }
 
 pub fn main(
-    root_dir_path: &str,
     notes_dir: &str,
     rofi_options: &[String],
     date_format: &str,
-    polybar_file: &str,
 ) {
     let expanded_notes = shellexpand::tilde(notes_dir);
     let current_course_dir = format!("{}/current-course", expanded_notes);

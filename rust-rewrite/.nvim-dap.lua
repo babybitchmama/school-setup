@@ -1,11 +1,13 @@
 local dap = require("dap")
 
-dap.adapters.lldb = {
-	type = "executable",
-	command = "/usr/bin/lldb-vscode", -- adjust as needed, must be absolute path
-	name = "lldb",
+dap.adapters.codelldb = {
+  type = "server",
+  port = "${port}",
+  executable = {
+    command = "codelldb",
+    args = { "--port", "${port}" },
+  },
 }
-
 dap.configurations.rust = {
 	{
 		name = "Lesson Manager",
