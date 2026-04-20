@@ -61,15 +61,20 @@ fn main() {
         Commands::InitCourses => {
             println!("Initializing course directories...");
         }
-        Commands::Rofi { action } => {
-            match action.as_str() {
-                "assignments" => println!("Opening Rofi for assignments..."),
-                "books" => println!("Opening Rofi for books..."),
-                "courses" => courses::main(&config.root, &config.notes_dir, &config.rofi_options, &config.polybar_current_course_file),
-                "notes" => notes::main(&config.notes_dir, &config.rofi_options, &config.date_format),
-                _ => println!("Unknown Rofi action. Available actions: `assignments`, `books`, `courses`, `notes`."),
-            }
-        }
+        Commands::Rofi { action } => match action.as_str() {
+            "assignments" => println!("Opening Rofi for assignments..."),
+            "books" => println!("Opening Rofi for books..."),
+            "courses" => courses::main(
+                &config.root,
+                &config.notes_dir,
+                &config.rofi_options,
+                &config.polybar_current_course_file,
+            ),
+            "notes" => notes::main(&config.notes_dir, &config.rofi_options, &config.date_format),
+            _ => println!(
+                "Unknown Rofi action. Available actions: `assignments`, `books`, `courses`, `notes`."
+            ),
+        },
         Commands::Figures { action, name, kill } => {
             if *kill {
                 println!("Killing the {} process...", action);
@@ -81,10 +86,10 @@ fn main() {
             }
         }
         Commands::BenchmarkRofi { ms } => {
-            use std::process::{Command, Stdio};
             use std::io::Write;
-            use std::time::Duration;
+            use std::process::{Command, Stdio};
             use std::thread;
+            use std::time::Duration;
 
             println!("Testing Time-to-Glass with a {}ms timeout...", ms);
 
