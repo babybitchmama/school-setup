@@ -7,7 +7,7 @@ mod utils;
 
 use utils::load_yaml_file::load_file;
 
-// use core::assignments;
+use core::assignments;
 // use core::books;
 // use core::calendar;
 use core::courses;
@@ -62,7 +62,15 @@ fn main() {
             println!("Initializing course directories...");
         }
         Commands::Rofi { action } => match action.as_str() {
-            "assignments" => println!("Opening Rofi for assignments..."),
+            "assignments" => assignments::main(
+                &config.assignment_folders,
+                &config.assignments_dir, // Note: Ensure you have this configured!
+                &config.date_format,
+                &config.rofi_options,
+                &config.terminal,
+                &config.editor,
+                &config.pdf_viewer,
+            ),
             "books" => println!("Opening Rofi for books..."),
             "courses" => courses::main(
                 &config.root,

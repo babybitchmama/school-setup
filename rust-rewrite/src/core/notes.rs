@@ -85,6 +85,7 @@ impl Note {
             .arg(editor)
             .args(nvim_args)
             .arg(&note_file)
+            .args(["--", "--latex"])
             .spawn()
             .expect("Failed to open Kitty/Neovim");
     }
@@ -93,8 +94,9 @@ impl Note {
         self.title.as_ref().map(|t| t.len()).unwrap_or(0)
     }
 
-    pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String {
-        let num_str = std::fmt::format(format_args!(" {:2}", self.number.unwrap_or(0)));
+pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String {
+        // Use your existing pad_number utility to eliminate the leading space
+        let num_str = pad_number(self.number.unwrap_or(0));
         let title = self.title.clone().unwrap_or_else(|| "Untitled".to_string());
 
         let date_str = self
@@ -107,16 +109,14 @@ impl Note {
         let padding_needed = max_title_len.saturating_sub(title.len()) + 4;
         let padding = "\u{00A0}".repeat(padding_needed);
 
-        let display_str = format!(
+        format!(
             "{num}. <b>{title}</b>{pad}<small>{date} (Week: {week})</small>",
             num = num_str,
             title = title,
             pad = padding,
             date = date_str,
             week = week
-        );
-
-        display_str
+        )
     }
 }
 
