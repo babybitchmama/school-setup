@@ -62,15 +62,7 @@ fn main() {
             println!("Initializing course directories...");
         }
         Commands::Rofi { action } => match action.as_str() {
-            "assignments" => assignments::main(
-                &config.assignment_folders,
-                &config.assignments_dir, // Note: Ensure you have this configured!
-                &config.date_format,
-                &config.rofi_options,
-                &config.terminal,
-                &config.editor,
-                &config.pdf_viewer,
-            ),
+            "assignments" => assignments::main(&config),
             "books" => println!("Opening Rofi for books..."),
             "courses" => courses::main(
                 &config.root,

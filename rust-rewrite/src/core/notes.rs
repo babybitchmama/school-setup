@@ -1,6 +1,7 @@
 use crate::core::courses::get_current_course_info;
 use crate::rofi::message::message;
 use crate::rofi::select::select_from_rofi;
+#[allow(unused_imports)]
 use crate::utils::parser::{get_week, pad_number, parse_range_string};
 use chrono::NaiveDateTime;
 use regex::Regex;

@@ -1,47 +1,23 @@
-use crate::config::AssignmentFolders;
+use crate::config::{
+    Assignment, AssignmentFile, AssignmentFolders, AssignmentYaml, LessonManagerConfigFile,
+};
 use crate::rofi::message::message;
 use crate::rofi::select::select_from_rofi;
 use crate::utils::assignments::{check_if_assignment_is_due, generate_short_title};
 use crate::utils::parser::pad_number;
 
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Mirrors the structure of your assignment .yaml files
-#[derive(Deserialize, Debug, Clone)]
-pub struct AssignmentYaml {
-    pub title: String,
-    pub grade: Option<String>,
-    pub submitted: bool,
-    pub number: u32,
-    pub due_date: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct AssignmentFile {
-    pub path: Option<PathBuf>,
-    pub exists: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct Assignment {
-    pub root: PathBuf,
-    pub name: String,
-    pub file_paths: HashMap<String, AssignmentFile>,
-    pub options: HashMap<String, String>,
-    pub info: Option<AssignmentYaml>,
-    pub formatted_due_date: String,
-    pub days_left: Option<i64>,
-}
-
 impl Assignment {
     pub fn new(
         yaml_root: PathBuf,
-        assignment_folders: &HashMap<String, String>,
+        assignment_folders: &AssignmentFolders,
+        current_course: &str,
+        assignments_dir: &str,
         date_format: &str,
     ) -> Self {
         let name = yaml_root.file_stem().unwrap().to_string_lossy().to_string();
@@ -50,22 +26,23 @@ impl Assignment {
 
         for (key, folder_path) in assignment_folders {
             let new_key = key.replace("_folder", "");
-            let mut base_path = PathBuf::from(shellexpand::tilde(folder_path).as_ref());
+
+            let full_folder = format!("{}/{}/{}", current_course, assignments_dir, folder_path);
+            let expanded = shellexpand::tilde(&full_folder);
+            let mut base_path = PathBuf::from(expanded.as_ref());
             base_path.push(&name);
 
             let pattern = format!("{}.*", base_path.display());
             let mut final_path = None;
             let mut exists = false;
 
-            if let Ok(mut paths) = glob::glob(&pattern) {
-                if let Some(Ok(p)) = paths.next() {
-                    final_path = Some(p);
-                    exists = true;
+            if let Ok(mut paths) = glob::glob(&pattern) && let Some(Ok(p)) = paths.next() {
+                final_path = Some(p);
+                exists = true;
 
-                    let display_name = new_key.replace('_', " ");
-                    let title_cased = format!("View {} File", display_name);
-                    options.insert(title_cased, new_key.clone());
-                }
+                let display_name = new_key.replace('_', " ");
+                let title_cased = format!("View {} File", display_name);
+                options.insert(title_cased, new_key.clone());
             }
 
             file_paths.insert(
@@ -81,20 +58,20 @@ impl Assignment {
         let mut formatted_due_date = "Unknown".to_string();
         let mut days_left = None;
 
-        if let Some(yaml_file) = file_paths.get("yaml") {
-            if let Some(path) = &yaml_file.path {
-                if let Ok(contents) = fs::read_to_string(path) {
-                    if let Ok(parsed_yaml) = serde_yaml::from_str::<AssignmentYaml>(&contents) {
-                        let (d_left, d_str) = check_if_assignment_is_due(
-                            &parsed_yaml.due_date,
-                            parsed_yaml.submitted,
-                            date_format,
-                        );
+        if let Some(yaml_file) = file_paths.get("yaml") && let Some(path) = &yaml_file.path && let Ok(contents) = fs::read_to_string(path) {
+            match serde_yaml::from_str::<AssignmentYaml>(&contents) {
+                Ok(parsed_yaml) => {
+                    let (d_left, d_str) = check_if_assignment_is_due(
+                        &parsed_yaml.due_date,
+                        parsed_yaml.submitted,
+                    );
 
-                        days_left = d_left;
-                        formatted_due_date = generate_short_title(&d_str, 28);
-                        info = Some(parsed_yaml);
-                    }
+                    days_left = d_left;
+                    formatted_due_date = generate_short_title(&d_str, 28);
+                    info = Some(parsed_yaml);
+                }
+                Err(e) => {
+                    println!("Failed to parse {:?}: {}", path, e);
                 }
             }
         }
@@ -122,11 +99,19 @@ impl Assignment {
             return;
         };
 
-        if path.extension().and_then(|e| e.to_str()) == Some("pdf") {
-            self.edit_pdf(path, pdf_viewer);
-        } else {
-            self.edit_text(path, terminal, editor);
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            if ext == "pdf" {
+                self.edit_pdf(path, pdf_viewer);
+            } else {
+                self.edit_text(path, terminal, editor);
+            }
         }
+
+        //     if path.extension().and_then(|e: &std::ffi::OsStr| e.to_str()) == Some("pdf") {
+        //         self.edit_pdf(path, pdf_viewer);
+        //     } else {
+        //         self.edit_text(path, terminal, editor);
+        //     }
     }
 
     fn edit_pdf(&self, path: &Path, pdf_viewer: &str) {
@@ -164,20 +149,36 @@ pub struct Assignments {
 }
 
 impl Assignments {
-    pub fn new(assignment_folders: &AssignmentFolders, date_format: &str) -> Self {
+    pub fn new(
+        current_course: &String,
+        assignments_dir: &String,
+        assignment_folders: &AssignmentFolders,
+        date_format: &str,
+    ) -> Self {
         let mut items = Vec::new();
 
-        if let Some(yaml_folder_str) = assignment_folders.get("yaml_folder") {
-            let expanded_path = shellexpand::tilde(yaml_folder_str);
-            let pattern = format!("{}/*.yaml", expanded_path);
+        let yaml_folder_str = assignment_folders
+            .get("yaml_folder")
+            .expect("yaml_folder not found in assignment_folders");
 
-            if let Ok(entries) = glob::glob(&pattern) {
-                for entry in entries.flatten() {
-                    let assignment = Assignment::new(entry, assignment_folders, date_format);
+        let pattern = format!(
+            "{}/{}/{}/*.yaml",
+            current_course, assignments_dir, yaml_folder_str
+        );
+        let expanded_pattern = shellexpand::tilde(&pattern);
+        if let Ok(entries) = glob::glob(&expanded_pattern) {
+            for entry in entries.flatten() {
+                let assignment = Assignment::new(
+                    entry,
+                    assignment_folders,
+                    current_course,
+                    assignments_dir,
+                    date_format,
+                );
 
-                    if assignment.info.is_some() {
-                        items.push(assignment);
-                    }
+                println!("{:?}", assignment);
+                if assignment.info.is_some() {
+                    items.push(assignment);
                 }
             }
         }
@@ -193,16 +194,23 @@ impl Assignments {
         Assignments { items, titles }
     }
 }
-pub fn main(
-    assignment_folders: &AssignmentFolders,
-    assignments_dir: &str,
-    date_format: &str,
-    rofi_options: &[String],
-    terminal: &str,
-    editor: &str,
-    pdf_viewer: &str,
-) {
-    let mut all_assignments = Assignments::new(assignment_folders, date_format).items;
+pub fn main(config: &LessonManagerConfigFile) {
+    let assignment_folders = &config.assignment_folders;
+    let date_format = &config.date_format;
+    let rofi_options = &config.rofi_options;
+    let assignments_dir = &config.assignments_dir;
+    let terminal = &config.terminal;
+    let editor = &config.editor;
+    let pdf_viewer = &config.pdf_viewer;
+    let current_course = &config.current_course;
+
+    let mut all_assignments = Assignments::new(
+        current_course,
+        assignments_dir,
+        assignment_folders,
+        date_format,
+    )
+    .items;
 
     if all_assignments.is_empty() {
         message("You don't have any assignments.", "info", rofi_options);
@@ -269,19 +277,14 @@ pub fn main(
             command_display_list.sort();
 
             if let Some(selected_cmd_display) = select_from_rofi(command_display_list, rofi_options)
+                && let Some(raw_cmd) = selected_assignment.options.get(&selected_cmd_display)
             {
-                if let Some(raw_cmd) = selected_assignment.options.get(&selected_cmd_display) {
-                    let expanded_dir = shellexpand::tilde(assignments_dir);
-                    if let Err(e) = env::set_current_dir(expanded_dir.as_ref()) {
-                        println!(
-                            "⚠️ CRITICAL ERROR: Failed to change to assignments directory: {}",
-                            e
-                        );
-                        return;
-                    }
-
-                    selected_assignment.parse_command(raw_cmd, terminal, editor, pdf_viewer);
+                let expanded_dir = shellexpand::tilde(assignments_dir);
+                if let Err(_e) = env::set_current_dir(expanded_dir.as_ref()) {
+                    return;
                 }
+
+                selected_assignment.parse_command(raw_cmd, terminal, editor, pdf_viewer);
             }
         } else {
             println!(

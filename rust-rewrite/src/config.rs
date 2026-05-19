@@ -1,16 +1,8 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-#[derive(Debug, Deserialize)]
-pub struct AssignmentFolders {
-    pub bib_folder: String,
-    pub tex_folder: String,
-    pub yaml_folder: String,
-    pub pdf_folder: String,
-    pub graded_assignment: String,
-    pub online_assignment: String,
-    pub solution_key: String,
-}
+pub type AssignmentFolders = HashMap<String, String>;
 
 #[derive(Debug, Deserialize)]
 pub struct LessonManagerConfigFile {
@@ -82,4 +74,46 @@ pub struct AssignmentYamlFile {
     pub submitted: bool,
     pub grade: Option<Grade>,
     pub number: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AssignmentFile {
+    pub path: Option<PathBuf>,
+    pub exists: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct Assignment {
+    pub root: PathBuf,
+    pub name: String,
+    pub file_paths: HashMap<String, AssignmentFile>,
+    pub options: HashMap<String, String>,
+    pub info: Option<AssignmentYaml>,
+    pub formatted_due_date: String,
+    pub days_left: Option<i64>,
+}
+
+fn deserialize_grade<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: Option<serde_yaml::Value> = Option::deserialize(deserializer)?;
+    match s {
+        None => Ok(None),
+        Some(serde_yaml::Value::String(s)) if s == "NA" => Ok(None),
+        Some(serde_yaml::Value::String(s)) => Ok(Some(s)),
+        Some(serde_yaml::Value::Number(n)) => Ok(Some(n.to_string())),
+        Some(_) => Ok(None),
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AssignmentYaml {
+    pub title: String,
+    #[serde(deserialize_with = "deserialize_grade")]
+    pub grade: Option<String>,
+    pub submitted: bool,
+    pub number: u32,
+    pub due_date: String,
+    pub url: Option<String>,
 }
