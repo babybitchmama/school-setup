@@ -1,4 +1,5 @@
-use crate::core::courses::get_current_course_info;
+use crate::config::LessonManagerConfigFile;
+use crate::utils::get_current_course_info;
 use crate::rofi::message::message;
 use crate::rofi::select::select_from_rofi;
 #[allow(unused_imports)]
@@ -44,7 +45,9 @@ impl Note {
         for line in content.lines() {
             if let Some(caps) = re.captures(line) {
                 self.number = caps.get(1).unwrap().as_str().parse::<u32>().ok();
-                self.display_number = self.number.map(|n| n.to_string().parse::<u32>().unwrap_or(n));
+                self.display_number = self
+                    .number
+                    .map(|n| n.to_string().parse::<u32>().unwrap_or(n));
 
                 if let Ok(date) =
                     NaiveDateTime::parse_from_str(caps.get(2).unwrap().as_str(), date_format)
@@ -65,7 +68,7 @@ impl Note {
         }
     }
 
-    pub fn edit(&self, current_course_dir: &str, editor: &str) {
+    pub fn edit(&self, current_course_dir: &str, editor: &str, editor_mode: &String) {
         let listen_location = "/tmp/nvim.pipe";
         let mut nvim_args = Vec::new();
 
@@ -81,23 +84,22 @@ impl Note {
         let num_str = pad_number(self.number.unwrap_or(0));
         let note_file = format!("lectures/lec-{}.tex", num_str);
 
-        Command::new("kitty")
+        let _ = Command::new("kitty")
             .arg(format!("--directory={}", current_course_dir))
-            .arg(editor)
-            .args(nvim_args)
+            .arg(&editor)
+            .args(&nvim_args)
             .arg(&note_file)
-            .args(["--", "--latex"])
+            .env("NVIM_MODE", &editor_mode) // set env var, e.g. "latex"
             .spawn()
-            .expect("Failed to open Kitty/Neovim");
+            .expect("Failed to open Kitty/Neovim")
+            .wait();
     }
 
     pub fn title_len(&self) -> usize {
         self.title.as_ref().map(|t| t.len()).unwrap_or(0)
     }
 
-pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String {
-        // Use your existing pad_number utility to eliminate the leading space
-        let num_str = pad_number(self.number.unwrap_or(0));
+    pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String {
         let title = self.title.clone().unwrap_or_else(|| "Untitled".to_string());
 
         let date_str = self
@@ -111,8 +113,8 @@ pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String 
         let padding = "\u{00A0}".repeat(padding_needed);
 
         format!(
-            "{num}. <b>{title}</b>{pad}<small>{date} (Week: {week})</small>",
-            num = num_str,
+            "{num:>2}. <b>{title}</b>{pad}<small>{date} (Week: {week})</small>",
+            num = self.number.unwrap_or(0),
             title = title,
             pad = padding,
             date = date_str,
@@ -122,7 +124,9 @@ pub fn format_display(&self, date_format: &str, max_title_len: usize) -> String 
 }
 
 pub struct Notes {
+    #[allow(dead_code)]
     pub root: PathBuf,
+    #[allow(dead_code)]
     pub master_file: PathBuf,
     pub notes_path: PathBuf,
     pub items: Vec<Note>,
@@ -157,11 +161,13 @@ impl Notes {
         self.items = parsed_notes;
     }
 
+    #[allow(dead_code)]
     pub fn include_lecture(&self, lecture_number: u32) -> String {
         let num_str = pad_number(lecture_number);
         format!("\\input{{./lectures/lec-{}.tex}}\n", num_str)
     }
 
+    #[allow(dead_code)]
     fn filter_body(&self, target_numbers: &[u32]) -> String {
         let Ok(content) = fs::read_to_string(&self.master_file) else {
             return String::new();
@@ -207,11 +213,13 @@ impl Notes {
         filtered_body
     }
 
+    #[allow(dead_code)]
     pub fn update_notes_in_master(&self, target_numbers: &[u32]) {
         let body = self.filter_body(target_numbers);
         fs::write(&self.master_file, body).expect("Failed to write to master.tex");
     }
 
+    #[allow(dead_code)]
     pub fn compile_master(&self) {
         Command::new("make")
             .current_dir(&self.root)
@@ -220,11 +228,12 @@ impl Notes {
     }
 }
 
-pub fn main(
-    notes_dir: &str,
-    rofi_options: &[String],
-    date_format: &str,
-) {
+pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
+    let notes_dir = &config.notes_dir;
+    let rofi_options = &config.rofi_options;
+    let date_format = &config.date_format;
+    let editor_mode = &config.editor_mode;
+
     let expanded_notes = shellexpand::tilde(notes_dir);
     let current_course_dir = format!("{}/current-course", expanded_notes);
 
@@ -256,13 +265,13 @@ pub fn main(
         note_map.insert(display_str, note);
     }
 
-    if let Some(selected) = select_from_rofi(rofi_display_list, rofi_options) {
-        if let Some(selected_note) = note_map.get(&selected) {
-            println!(
-                "Opening Lecture {} in Neovim...",
-                selected_note.number.unwrap_or(0)
-            );
-            selected_note.edit(&current_course_dir, "nvim");
-        }
+    if let Some(selected) = select_from_rofi(rofi_display_list, rofi_options)
+        && let Some(selected_note) = note_map.get(&selected)
+    {
+        println!(
+            "Opening Lecture {} in Neovim...",
+            selected_note.number.unwrap_or(0)
+        );
+        selected_note.edit(&current_course_dir, "nvim", editor_mode);
     }
 }

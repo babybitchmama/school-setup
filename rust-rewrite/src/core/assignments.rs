@@ -7,7 +7,6 @@ use crate::utils::assignments::{check_if_assignment_is_due, generate_short_title
 use crate::utils::parser::pad_number;
 
 use std::collections::HashMap;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -18,7 +17,6 @@ impl Assignment {
         assignment_folders: &AssignmentFolders,
         current_course: &str,
         assignments_dir: &str,
-        date_format: &str,
     ) -> Self {
         let name = yaml_root.file_stem().unwrap().to_string_lossy().to_string();
         let mut file_paths = HashMap::new();
@@ -36,7 +34,9 @@ impl Assignment {
             let mut final_path = None;
             let mut exists = false;
 
-            if let Ok(mut paths) = glob::glob(&pattern) && let Some(Ok(p)) = paths.next() {
+            if let Ok(mut paths) = glob::glob(&pattern)
+                && let Some(Ok(p)) = paths.next()
+            {
                 final_path = Some(p);
                 exists = true;
 
@@ -58,13 +58,14 @@ impl Assignment {
         let mut formatted_due_date = "Unknown".to_string();
         let mut days_left = None;
 
-        if let Some(yaml_file) = file_paths.get("yaml") && let Some(path) = &yaml_file.path && let Ok(contents) = fs::read_to_string(path) {
+        if let Some(yaml_file) = file_paths.get("yaml")
+            && let Some(path) = &yaml_file.path
+            && let Ok(contents) = fs::read_to_string(path)
+        {
             match serde_yaml::from_str::<AssignmentYaml>(&contents) {
                 Ok(parsed_yaml) => {
-                    let (d_left, d_str) = check_if_assignment_is_due(
-                        &parsed_yaml.due_date,
-                        parsed_yaml.submitted,
-                    );
+                    let (d_left, d_str) =
+                        check_if_assignment_is_due(&parsed_yaml.due_date, parsed_yaml.submitted);
 
                     days_left = d_left;
                     formatted_due_date = generate_short_title(&d_str, 28);
@@ -106,19 +107,14 @@ impl Assignment {
                 self.edit_text(path, terminal, editor);
             }
         }
-
-        //     if path.extension().and_then(|e: &std::ffi::OsStr| e.to_str()) == Some("pdf") {
-        //         self.edit_pdf(path, pdf_viewer);
-        //     } else {
-        //         self.edit_text(path, terminal, editor);
-        //     }
     }
 
     fn edit_pdf(&self, path: &Path, pdf_viewer: &str) {
-        Command::new(pdf_viewer)
+        let _ = Command::new(pdf_viewer)
             .arg(path)
             .spawn()
-            .expect("Failed to launch PDF viewer");
+            .expect("Failed to launch PDF viewer")
+            .wait();
     }
 
     fn edit_text(&self, path: &Path, terminal: &str, editor: &str) {
@@ -134,17 +130,19 @@ impl Assignment {
             nvim_args.push(listen_location);
         }
 
-        Command::new(terminal)
+        let _ = Command::new(terminal)
             .arg(editor)
             .args(nvim_args)
             .arg(path)
             .spawn()
-            .expect("Failed to open terminal and editor");
+            .expect("Failed to open terminal and editor")
+            .wait();
     }
 }
 
 pub struct Assignments {
     pub items: Vec<Assignment>,
+    #[allow(dead_code)]
     pub titles: Vec<String>,
 }
 
@@ -153,7 +151,6 @@ impl Assignments {
         current_course: &String,
         assignments_dir: &String,
         assignment_folders: &AssignmentFolders,
-        date_format: &str,
     ) -> Self {
         let mut items = Vec::new();
 
@@ -168,15 +165,9 @@ impl Assignments {
         let expanded_pattern = shellexpand::tilde(&pattern);
         if let Ok(entries) = glob::glob(&expanded_pattern) {
             for entry in entries.flatten() {
-                let assignment = Assignment::new(
-                    entry,
-                    assignment_folders,
-                    current_course,
-                    assignments_dir,
-                    date_format,
-                );
+                let assignment =
+                    Assignment::new(entry, assignment_folders, current_course, assignments_dir);
 
-                println!("{:?}", assignment);
                 if assignment.info.is_some() {
                     items.push(assignment);
                 }
@@ -194,23 +185,23 @@ impl Assignments {
         Assignments { items, titles }
     }
 }
-pub fn main(config: &LessonManagerConfigFile) {
+
+
+pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
     let assignment_folders = &config.assignment_folders;
-    let date_format = &config.date_format;
     let rofi_options = &config.rofi_options;
     let assignments_dir = &config.assignments_dir;
     let terminal = &config.terminal;
     let editor = &config.editor;
     let pdf_viewer = &config.pdf_viewer;
-    let current_course = &config.current_course;
+    let mut course = &config.current_course;
 
-    let mut all_assignments = Assignments::new(
-        current_course,
-        assignments_dir,
-        assignment_folders,
-        date_format,
-    )
-    .items;
+    if !current_course_boolean {
+
+    }
+
+    let mut all_assignments =
+        Assignments::new(&course, assignments_dir, assignment_folders).items;
 
     if all_assignments.is_empty() {
         message("You don't have any assignments.", "info", rofi_options);
@@ -229,7 +220,7 @@ pub fn main(config: &LessonManagerConfigFile) {
     for assignment in all_assignments {
         let info = assignment.info.as_ref().unwrap();
 
-        let number_str = pad_number(info.number);
+        let number_str = info.number;
         let title = generate_short_title(&info.title, 20);
         let due_date = generate_short_title(&assignment.formatted_due_date, 15);
 
@@ -245,23 +236,13 @@ pub fn main(config: &LessonManagerConfigFile) {
             None => "(NA)".to_string(),
         };
 
-        let pad1 = "\u{00A0}".repeat(25usize.saturating_sub(title.len()));
-        let pad2 = "\u{00A0}".repeat(15usize.saturating_sub(due_date.len()));
-        let pad3 = "\u{00A0}".repeat(16usize.saturating_sub(days_left_short.len()));
-
-        let pad_grade = "\u{00A0}".repeat(7usize.saturating_sub(grade_str.len()));
-
         let display_str = format!(
-            "<b>{num}. {title}</b>{p1} <i><small>{due}</small></i>{p2} <i><small>{days}</small></i>{p3} <i><small>{p_grade}{grade}</small></i>",
+            "<span><b>{num:>2}. {title:<20}</b>  <small><i>{due:<15}  {days:<16}  {grade:>7}</i></small></span>",
             num = number_str,
             title = title,
-            p1 = pad1,
             due = due_date,
-            p2 = pad2,
             days = days_left_short,
-            p3 = pad3,
-            p_grade = pad_grade,
-            grade = grade_str
+            grade = grade_str,
         );
 
         rofi_display_list.push(display_str.clone());
@@ -279,11 +260,6 @@ pub fn main(config: &LessonManagerConfigFile) {
             if let Some(selected_cmd_display) = select_from_rofi(command_display_list, rofi_options)
                 && let Some(raw_cmd) = selected_assignment.options.get(&selected_cmd_display)
             {
-                let expanded_dir = shellexpand::tilde(assignments_dir);
-                if let Err(_e) = env::set_current_dir(expanded_dir.as_ref()) {
-                    return;
-                }
-
                 selected_assignment.parse_command(raw_cmd, terminal, editor, pdf_viewer);
             }
         } else {

@@ -8,11 +8,13 @@ mod utils;
 use utils::load_yaml_file::load_file;
 
 use core::assignments;
-// use core::books;
+use core::books;
 // use core::calendar;
 use core::courses;
 // use core::inkscape;
 use core::notes;
+
+use crate::core::inkscape;
 // use core::sync;
 
 #[derive(Parser)]
@@ -31,10 +33,8 @@ enum Commands {
 
     Rofi {
         action: String,
-    },
-
-    BenchmarkRofi {
-        ms: u64,
+        #[arg(long)]
+        current_course: bool,
     },
 
     Figures {
@@ -61,54 +61,26 @@ fn main() {
         Commands::InitCourses => {
             println!("Initializing course directories...");
         }
-        Commands::Rofi { action } => match action.as_str() {
-            "assignments" => assignments::main(&config),
-            "books" => println!("Opening Rofi for books..."),
-            "courses" => courses::main(
-                &config.root,
-                &config.notes_dir,
-                &config.rofi_options,
-                &config.polybar_current_course_file,
-            ),
-            "notes" => notes::main(&config.notes_dir, &config.rofi_options, &config.date_format),
+        Commands::Rofi { action, current_course } => match action.as_str() {
+            "assignments" => assignments::main(&config, *current_course),
+            "books" => books::main(&config, *current_course),
+            "courses" => courses::main(&config, *current_course),
+            "notes" => notes::main(&config, *current_course),
             _ => println!(
-                "Unknown Rofi action. Available actions: `assignments`, `books`, `courses`, `notes`."
+                "Unknown Rofi action `{}`. Available actions: `assignments`, `books`, `courses`, `notes`.",
+                action.as_str()
             ),
         },
         Commands::Figures { action, name, kill } => {
             if *kill {
-                println!("Killing the {} process...", action);
+                inkscape::kill(&config);
             } else {
+                inkscape::run_action(&config, &action);
                 println!("Running figure action: {}", action);
                 if let Some(n) = name {
                     println!("Target: {}", n);
                 }
             }
-        }
-        Commands::BenchmarkRofi { ms } => {
-            use std::io::Write;
-            use std::process::{Command, Stdio};
-            use std::thread;
-            use std::time::Duration;
-
-            println!("Testing Time-to-Glass with a {}ms timeout...", ms);
-
-            let mut child = Command::new("rofi")
-                .arg("-dmenu")
-                .stdin(Stdio::piped())
-                .spawn()
-                .expect("Failed to start rofi");
-
-            if let Some(mut stdin) = child.stdin.take() {
-                stdin.write_all(b"Test 1\nTest 2\nTest 3").unwrap();
-            }
-
-            thread::sleep(Duration::from_millis(*ms));
-
-            let _ = child.kill();
-            let _ = child.wait();
-
-            println!("Did you see it blink?");
         }
     }
 }
