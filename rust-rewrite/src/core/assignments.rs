@@ -134,6 +134,7 @@ impl Assignment {
             .arg(editor)
             .args(nvim_args)
             .arg(path)
+            .env("NVIM_MODE", "latex")
             .spawn()
             .expect("Failed to open terminal and editor")
             .wait();
