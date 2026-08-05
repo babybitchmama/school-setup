@@ -38,7 +38,7 @@ pub fn select_course(config: &LessonManagerConfigFile) -> Option<String> {
 
     rofi_display_list.sort_unstable();
 
-    let selected = select_from_rofi(rofi_display_list, &config.rofi_options)?;
+    let selected = select_from_rofi(rofi_display_list, &config.rofi_options, "Select Course".to_string())?;
 
     course_map.get(&selected).cloned()
 }

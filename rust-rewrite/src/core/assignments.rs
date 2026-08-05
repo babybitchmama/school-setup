@@ -251,14 +251,14 @@ pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
         assignment_map.insert(display_str.trim().to_string(), assignment.clone());
     }
 
-    if let Some(selected_str) = select_from_rofi(rofi_display_list, rofi_options) {
+    if let Some(selected_str) = select_from_rofi(rofi_display_list, rofi_options, "Select an Assignment".to_string()) {
         if let Some(selected_assignment) = assignment_map.get(&selected_str) {
             let mut command_display_list: Vec<String> =
                 selected_assignment.options.keys().cloned().collect();
 
             command_display_list.sort();
 
-            if let Some(selected_cmd_display) = select_from_rofi(command_display_list, rofi_options)
+            if let Some(selected_cmd_display) = select_from_rofi(command_display_list, rofi_options, "Select a Command".to_string())
                 && let Some(raw_cmd) = selected_assignment.options.get(&selected_cmd_display)
             {
                 selected_assignment.parse_command(raw_cmd, terminal, editor, pdf_viewer);

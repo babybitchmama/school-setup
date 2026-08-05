@@ -43,7 +43,7 @@ pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
     rofi_display_list.sort_unstable();
 
     let selected_formatted =
-        select_from_rofi(rofi_display_list, rofi_options).expect("No course selected");
+        select_from_rofi(rofi_display_list, rofi_options, "Select Course".to_string()).expect("No course selected");
 
     let original_course_name = course_map
         .get(&selected_formatted)

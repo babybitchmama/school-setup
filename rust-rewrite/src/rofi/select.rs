@@ -1,11 +1,13 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-pub fn select_from_rofi(options: Vec<String>, rofi_options: &[String]) -> Option<String> {
+pub fn select_from_rofi(options: Vec<String>, rofi_options: &[String], prompt: String) -> Option<String> {
     let rofi_input = options.join("\n");
 
+    let args = ["-p", &prompt];
     let mut child = Command::new("rofi")
         .arg("-dmenu")
+        .args(args)
         .args(rofi_options)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

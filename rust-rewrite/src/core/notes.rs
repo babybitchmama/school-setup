@@ -265,7 +265,7 @@ pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
         note_map.insert(display_str, note);
     }
 
-    if let Some(selected) = select_from_rofi(rofi_display_list, rofi_options)
+    if let Some(selected) = select_from_rofi(rofi_display_list, rofi_options, "Select Lecture Note".to_string())
         && let Some(selected_note) = note_map.get(&selected)
     {
         println!(
