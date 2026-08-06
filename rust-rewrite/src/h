@@ -1,0 +1,18 @@
+Brain dump: These commands will access the brain dump notes I have stored in `thesis/notes/brain-dump/` folders. The commands are:
+  1. new
+  2. list
+
+Meetings: These commands will access the meeting notes I have stored in `thesis/meetings/MM-DD-YYYY/` folders. The commands are:
+  1. new
+  2. list
+
+Sections: These commands will access the section notes I have stored in `thesis/notes/sections/` folders. The commands are:
+  1. new
+  2. list
+
+One off commands:
+  1. pull: This command will pull my samsung notes into their corresponding folders, in either `brain-dump`, `meetings`, or `sections` depending on the note type.
+  2. compile: This command will compile all the notes into a single document, organized by type (brain dump, meetings, sections).
+  3. word-count: This command will count the total number of words across all notes, providing a summary of the content volume.
+  4. advisor: This command will give me a summary of my advisor from the `advisor-info.yaml` file located in the `thesis/` folder. (Already implemented.)
+  5. papers: This command will list all the papers I have stored in the `thesis/papers/` folder, along with their metadata (title, authors, publication date, etc.) from the `papers.bib` file.

@@ -1,15 +1,33 @@
 use crate::config::{
     Assignment, AssignmentFile, AssignmentFolders, AssignmentYaml, LessonManagerConfigFile,
 };
+use crate::parser::generate_short_title;
 use crate::rofi::message::message;
 use crate::rofi::select::select_from_rofi;
-use crate::utils::assignments::{check_if_assignment_is_due, generate_short_title};
-use crate::utils::parser::pad_number;
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use chrono::{Local, NaiveDate};
+
+pub fn check_if_assignment_is_due(due_date_str: &str, submitted: bool) -> (Option<i64>, String) {
+    const ASSIGNMENT_DATE_FORMAT: &str = "%m-%d-%y";
+
+    if submitted {
+        return (None, "Submitted".to_string());
+    }
+
+    if let Ok(due_date) = NaiveDate::parse_from_str(due_date_str, ASSIGNMENT_DATE_FORMAT) {
+        let now: NaiveDate = Local::now().date_naive();
+        let days_left = (due_date - now).num_days();
+        let formatted = due_date.format("%b %d (%a)").to_string();
+        (Some(days_left), formatted)
+    } else {
+        (None, "Invalid Date".to_string())
+    }
+}
 
 impl Assignment {
     pub fn new(
@@ -187,7 +205,6 @@ impl Assignments {
     }
 }
 
-
 pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
     let assignment_folders = &config.assignment_folders;
     let rofi_options = &config.rofi_options;
@@ -197,15 +214,12 @@ pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
     let pdf_viewer = &config.pdf_viewer;
     let mut course = &config.current_course;
 
-    if !current_course_boolean {
+    if !current_course_boolean {}
 
-    }
-
-    let mut all_assignments =
-        Assignments::new(&course, assignments_dir, assignment_folders).items;
+    let mut all_assignments = Assignments::new(&course, assignments_dir, assignment_folders).items;
 
     if all_assignments.is_empty() {
-        message("You don't have any assignments.", "info", rofi_options);
+        message("You don't have any assignments.", "info", rofi_options, None);
         return;
     }
 
@@ -251,15 +265,22 @@ pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
         assignment_map.insert(display_str.trim().to_string(), assignment.clone());
     }
 
-    if let Some(selected_str) = select_from_rofi(rofi_display_list, rofi_options, "Select an Assignment".to_string()) {
+    if let Some(selected_str) = select_from_rofi(
+        rofi_display_list,
+        rofi_options,
+        "Select an Assignment".to_string(),
+    ) {
         if let Some(selected_assignment) = assignment_map.get(&selected_str) {
             let mut command_display_list: Vec<String> =
                 selected_assignment.options.keys().cloned().collect();
 
             command_display_list.sort();
 
-            if let Some(selected_cmd_display) = select_from_rofi(command_display_list, rofi_options, "Select a Command".to_string())
-                && let Some(raw_cmd) = selected_assignment.options.get(&selected_cmd_display)
+            if let Some(selected_cmd_display) = select_from_rofi(
+                command_display_list,
+                rofi_options,
+                "Select a Command".to_string(),
+            ) && let Some(raw_cmd) = selected_assignment.options.get(&selected_cmd_display)
             {
                 selected_assignment.parse_command(raw_cmd, terminal, editor, pdf_viewer);
             }

@@ -1,0 +1,33 @@
+.
+├── config.rs
+├── core
+│   ├── assignments.rs
+│   ├── books.rs
+│   ├── calendar.rs
+│   ├── courses.rs
+│   ├── inkscape.rs
+│   ├── mod.rs
+│   ├── notes.rs
+│   ├── rofi
+│   ├── sync.rs
+│   └── thesis
+│       ├── advisor.rs
+│       ├── meetings.rs
+│       ├── mod.rs
+│       ├── notes.rs
+│       ├── papers.rs
+│       └── sync.rs
+├── dates.rs
+├── figures
+│   ├── mod.rs
+│   ├── shortcuts.rs
+│   └── watcher.rs
+├── main.rs
+├── out
+├── parser.rs
+├── rofi
+│   ├── display.rs
+│   ├── message.rs
+│   ├── mod.rs
+│   └── select.rs
+└── yaml.rs

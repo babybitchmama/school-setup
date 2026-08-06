@@ -1,10 +1,9 @@
 use crate::config::LessonManagerConfigFile;
-use crate::rofi::select::select_from_rofi;
-use crate::utils::{
-    change_current_course::change_current_course, format_course_name::format_course_name,
-    get_courses_in_path::get_courses_in_path, get_current_course_info::get_current_course_info,
-    update_polybar_current_course::update_polybar_current_course,
+use crate::core::{
+    change_current_course, format_course_name, get_courses_in_path, get_current_course_info,
+    update_polybar_current_course,
 };
+use crate::rofi::select::select_from_rofi;
 use std::collections::HashMap;
 
 pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
@@ -43,7 +42,8 @@ pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
     rofi_display_list.sort_unstable();
 
     let selected_formatted =
-        select_from_rofi(rofi_display_list, rofi_options, "Select Course".to_string()).expect("No course selected");
+        select_from_rofi(rofi_display_list, rofi_options, "Select Course".to_string())
+            .expect("No course selected");
 
     let original_course_name = course_map
         .get(&selected_formatted)

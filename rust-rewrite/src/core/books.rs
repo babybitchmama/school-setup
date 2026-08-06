@@ -1,10 +1,26 @@
 use crate::config::LessonManagerConfigFile;
-use crate::utils::get_files::get_content;
 use prettytable::{Table, row};
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+pub fn get_content(path: &str) -> Vec<String> {
+    let mut content = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if let Some(path_str) = path.to_str() {
+                    content.push(path_str.to_string());
+                }
+            }
+        }
+    }
+
+    content
+}
 
 pub enum Solutions {
     SingleFile(PathBuf),
@@ -132,9 +148,8 @@ impl Book {
                             .filter_map(|e: Result<_, _>| e.ok())
                         {
                             let solution_path: PathBuf = entry.path();
-                            let solution_name = to_title_case(
-                                solution_path.file_stem().unwrap().to_str().unwrap(),
-                            );
+                            let solution_name =
+                                to_title_case(solution_path.file_stem().unwrap().to_str().unwrap());
                             map.insert(solution_name, solution_path);
                         }
                         Solutions::MultipleFiles(map)

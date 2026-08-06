@@ -1,9 +1,9 @@
 use crate::config::LessonManagerConfigFile;
-use crate::utils::get_current_course_info;
+use crate::core::get_current_course_info;
 use crate::rofi::message::message;
 use crate::rofi::select::select_from_rofi;
 #[allow(unused_imports)]
-use crate::utils::parser::{get_week, pad_number, parse_range_string};
+use crate::parser::{get_week, pad_number, parse_range_string};
 use chrono::NaiveDateTime;
 use regex::Regex;
 use std::collections::HashMap;
@@ -69,30 +69,10 @@ impl Note {
     }
 
     pub fn edit(&self, current_course_dir: &str, editor: &str, editor_mode: &String) {
-        let listen_location = "/tmp/nvim.pipe";
-        let mut nvim_args = Vec::new();
-
-        if Path::new(listen_location).exists() {
-            nvim_args.push("--server");
-            nvim_args.push(listen_location);
-            nvim_args.push("--remote-tab");
-        } else {
-            nvim_args.push("--listen");
-            nvim_args.push(listen_location);
-        }
-
         let num_str = pad_number(self.number.unwrap_or(0));
         let note_file = format!("lectures/lec-{}.tex", num_str);
 
-        let _ = Command::new("kitty")
-            .arg(format!("--directory={}", current_course_dir))
-            .arg(&editor)
-            .args(&nvim_args)
-            .arg(&note_file)
-            .env("NVIM_MODE", &editor_mode) // set env var, e.g. "latex"
-            .spawn()
-            .expect("Failed to open Kitty/Neovim")
-            .wait();
+        crate::open_in_neovim(Path::new(current_course_dir), &[PathBuf::from(note_file)], "kitty", editor, editor_mode);
     }
 
     pub fn title_len(&self) -> usize {
@@ -243,7 +223,7 @@ pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
     let my_notes = Notes::new(&current_course_dir, date_format, &course_info.start_date);
 
     if my_notes.items.is_empty() {
-        message("No notes found for this course.", "info", rofi_options);
+        message("No notes found for this course.", "info", rofi_options, None);
         return;
     }
 

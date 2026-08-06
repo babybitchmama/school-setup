@@ -17,6 +17,7 @@ pub struct LessonManagerConfigFile {
     pub notes_dir: String,
     pub root: String,
     pub templates_dir: String,
+    pub thesis_dir: String,
     pub current_course: String,
     pub polybar_current_course_file: String,
     pub date_format: String,
@@ -118,4 +119,12 @@ pub struct AssignmentYaml {
     pub number: u32,
     pub due_date: String,
     pub url: Option<String>,
+}
+
+use indexmap::IndexMap;
+
+#[derive(Debug, Deserialize)]
+pub struct AdvisorInfo {
+    #[serde(flatten)]
+    pub fields: IndexMap<String, serde_yaml::Value>,
 }

@@ -14,3 +14,4 @@ serde_yaml = "0.9.34"
 shellexpand = "3.1.2"
 yaml-rust = "0.4.5"
 prettytable-rs = "0.10"
+indexmap = { version = "2.14.0", features = ["serde"] }

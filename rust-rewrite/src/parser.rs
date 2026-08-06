@@ -63,3 +63,12 @@ pub fn parse_range_string(arg: &str, all_numbers: &[u32]) -> Vec<u32> {
 
     result
 }
+
+pub fn generate_short_title(title: &str, max_len: usize) -> String {
+    if title.len() <= max_len {
+        title.to_string()
+    } else {
+        let cutoff = max_len.saturating_sub(3);
+        format!("{}...", &title[..cutoff])
+    }
+}
