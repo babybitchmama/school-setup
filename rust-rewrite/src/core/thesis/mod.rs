@@ -36,20 +36,25 @@ pub fn main(config: &LessonManagerConfigFile, command: &ThesisCommands) {
             meeting_notes,
             sections,
         } => {
+            let mut compile_brain_dumps = *brain_dumps;
+            let mut compile_meeting_notes = *meeting_notes;
+            let mut compile_sections = *sections;
+
             if !brain_dumps && !meeting_notes && !sections {
-                println!("No specific targets passed. Running default master compile...");
-                // compile::run_master(config);
+                compile_brain_dumps = true;
+                compile_meeting_notes = true;
+                compile_sections = true;
             }
 
-            if *brain_dumps {
+            if compile_brain_dumps {
                 println!("Compiling brain dumps...");
                 // compile::run_brain_dumps(config);
             }
-            if *meeting_notes {
+            if compile_meeting_notes {
                 println!("Compiling meeting notes...");
                 // compile::run_meeting_notes(config);
             }
-            if *sections {
+            if compile_sections {
                 println!("Compiling sections...");
                 // compile::run_sections(config);
             }
