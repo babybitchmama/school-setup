@@ -5,30 +5,25 @@ pub mod papers;
 pub mod sections;
 pub mod sync;
 
-use crate::ThesisCommands;
+// Import both enums from your main crate
 use crate::config::LessonManagerConfigFile;
-
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use crate::{ThesisActions, ThesisCommands};
 
 pub fn main(config: &LessonManagerConfigFile, command: &ThesisCommands) {
     match command {
-        ThesisCommands::BrainDump { action } => match action.as_str() {
-            "new" => notes::new_brain_dump(config),
-            "list" => notes::list_brain_dump_files(config),
-            _ => println!("Unknown brain-dump action: '{}'. Try 'new' or 'list'.", action),
+        ThesisCommands::BrainDump { action } => match action {
+            ThesisActions::New => notes::new_brain_dump(config),
+            ThesisActions::List => notes::list_brain_dump_files(config),
         },
 
-        ThesisCommands::Meetings { action } => match action.as_str() {
-            "new" => meetings::new_meeting(config),
-            "list" => meetings::list_meetings(config),
-            _ => println!("Unknown meetings action: '{}'. Try 'new' or 'list'.", action),
+        ThesisCommands::Meetings { action } => match action {
+            ThesisActions::New => meetings::new_meeting(config),
+            ThesisActions::List => meetings::list_meetings(config),
         },
 
-        ThesisCommands::Sections { action } => match action.as_str() {
-            "new" => sections::new_section(config),
-            "list" => sections::list_section_notes(config),
-            _ => println!("Unknown sections action: '{}'. Try 'new' or 'list'.", action),
+        ThesisCommands::Sections { action } => match action {
+            ThesisActions::New => sections::new_section(config),
+            ThesisActions::List => sections::list_section_notes(config),
         },
 
         ThesisCommands::Pull => {
@@ -36,9 +31,28 @@ pub fn main(config: &LessonManagerConfigFile, command: &ThesisCommands) {
             // sync::pull_notes(config);
         }
 
-        ThesisCommands::Compile => {
-            println!("Compiling thesis... (Coming soon)");
-            // compile::run_compile(config);
+        ThesisCommands::Compile {
+            brain_dumps,
+            meeting_notes,
+            sections,
+        } => {
+            if !brain_dumps && !meeting_notes && !sections {
+                println!("No specific targets passed. Running default master compile...");
+                // compile::run_master(config);
+            }
+
+            if *brain_dumps {
+                println!("Compiling brain dumps...");
+                // compile::run_brain_dumps(config);
+            }
+            if *meeting_notes {
+                println!("Compiling meeting notes...");
+                // compile::run_meeting_notes(config);
+            }
+            if *sections {
+                println!("Compiling sections...");
+                // compile::run_sections(config);
+            }
         }
 
         ThesisCommands::WordCount => {

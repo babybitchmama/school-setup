@@ -61,7 +61,7 @@ pub fn list_brain_dump_files(config: &LessonManagerConfigFile) {
 
     display_list.sort_by(|a, b| b.cmp(a));
 
-    if let Some(selected) = select_from_rofi(display_list, &config.rofi_options, "Select a work note:".to_string()) {
+    if let Some(selected) = select_from_rofi(display_list, &config.rofi_options, "Select a work note".to_string()) {
         if let Some(target_path) = path_map.get(&selected) {
             open_in_neovim(&brain_dump_dir, &[target_path.clone()], terminal, editor, &config.editor_mode);
         }

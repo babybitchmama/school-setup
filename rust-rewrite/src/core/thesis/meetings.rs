@@ -88,7 +88,7 @@ pub fn list_meetings(config: &LessonManagerConfigFile) {
     if let Some(selected_date) = select_from_rofi(
         meeting_dates,
         &config.rofi_options,
-        "Select a meeting date:".to_string(),
+        "Select a meeting date".to_string(),
     ) {
         let selected_meeting_dir = meetings_base_dir.join(&selected_date);
         let pattern = format!("{}/*.tex", selected_meeting_dir.display());
@@ -132,7 +132,7 @@ pub fn list_meetings(config: &LessonManagerConfigFile) {
         if let Some(selected_file) = select_from_rofi(
             file_display_list,
             &config.rofi_options,
-            "Select a file to open:".to_string(),
+            "Select a file to open".to_string(),
         ) {
             if let Some(target_path) = file_path_map.get(&selected_file) {
                 open_in_neovim(

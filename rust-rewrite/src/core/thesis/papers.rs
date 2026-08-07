@@ -4,6 +4,7 @@ use crate::rofi::select::select_from_rofi;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 
 #[derive(Default, Debug, Clone)]
@@ -58,11 +59,9 @@ pub fn list_papers(config: &LessonManagerConfigFile) {
             current_paper = BibEntry::default();
             in_entry = true;
 
-            // FIXED: Search the whole string for the comma to get the absolute index
             if let Some(start) = trimmed.find('{') {
                 if let Some(end) = trimmed.find(',') {
                     if end > start {
-                        // Added .trim() to safely remove any rogue spaces
                         current_paper.key = trimmed[start + 1..end].trim().to_string();
                     }
                 }
@@ -103,7 +102,7 @@ pub fn list_papers(config: &LessonManagerConfigFile) {
     if let Some(selected) = select_from_rofi(
         display_list,
         &config.rofi_options,
-        "Select a paper:".to_string(),
+        "Select a paper".to_string(),
     ) {
         if let Some(pdf_path) = path_map.get(&selected) {
             if pdf_path.exists() {
@@ -124,7 +123,7 @@ pub fn list_papers(config: &LessonManagerConfigFile) {
     }
 }
 
-fn display_paper_info(paper: &BibEntry, display_list: &mut Vec<String>, path_map: &mut HashMap<String, PathBuf>, papers_dir: &PathBuf) {
+fn display_paper_info(paper: &BibEntry, display_list: &mut Vec<String>, path_map: &mut HashMap<String, PathBuf>, papers_dir: &Path) {
     let display_title = if paper.title.is_empty() {
         &paper.key
     } else {

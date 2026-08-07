@@ -18,7 +18,7 @@ pub fn new_section(config: &LessonManagerConfigFile) {
     let editor = &config.editor;
 
     // Call our new clean helper!
-    let Some(raw_input) = prompt_input("Section Note Topic:", &config.rofi_options) else {
+    let Some(raw_input) = prompt_input("Section Note Topic", &config.rofi_options) else {
         println!("No input provided. Aborting.");
         return;
     };
@@ -92,7 +92,7 @@ pub fn list_section_notes(config: &LessonManagerConfigFile) {
     if let Some(selected) = select_from_rofi(
         display_list,
         &config.rofi_options,
-        "Select a section note:".to_string(),
+        "Select a section note".to_string(),
     ) {
         if let Some(target_path) = path_map.get(&selected) {
             open_in_neovim(&sections_dir, &[target_path.clone()], terminal, editor, &config.editor_mode);
