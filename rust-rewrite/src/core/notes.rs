@@ -1,9 +1,9 @@
 use crate::config::LessonManagerConfigFile;
 use crate::core::get_current_course_info;
-use crate::rofi::message::message;
-use crate::rofi::select::select_from_rofi;
 #[allow(unused_imports)]
 use crate::parser::{get_week, pad_number, parse_range_string};
+use crate::rofi::message::message;
+use crate::rofi::select::select_from_rofi;
 use chrono::NaiveDateTime;
 use regex::Regex;
 use std::collections::HashMap;
@@ -15,6 +15,7 @@ use std::process::Command;
 pub struct Note {
     pub file_path: PathBuf,
     pub number: Option<u32>,
+    pub padded_number: String,
     pub date: Option<NaiveDateTime>,
     pub title: Option<String>,
     pub week: Option<i32>,
@@ -26,6 +27,7 @@ impl Note {
         let mut note = Note {
             file_path,
             number: None,
+            padded_number: "".to_string(),
             date: None,
             title: None,
             week: None,
@@ -45,6 +47,7 @@ impl Note {
         for line in content.lines() {
             if let Some(caps) = re.captures(line) {
                 self.number = caps.get(1).unwrap().as_str().parse::<u32>().ok();
+                self.padded_number = pad_number(self.number.unwrap_or(0));
                 self.display_number = self
                     .number
                     .map(|n| n.to_string().parse::<u32>().unwrap_or(n));
@@ -69,10 +72,15 @@ impl Note {
     }
 
     pub fn edit(&self, current_course_dir: &str, editor: &str, editor_mode: &String) {
-        let num_str = pad_number(self.number.unwrap_or(0));
-        let note_file = format!("lectures/lec-{}.tex", num_str);
+        let note_file = format!("lectures/lec-{}.tex", self.padded_number);
 
-        crate::open_in_neovim(Path::new(current_course_dir), &[PathBuf::from(note_file)], "kitty", editor, editor_mode);
+        crate::open_in_neovim(
+            Path::new(current_course_dir),
+            &[PathBuf::from(note_file)],
+            "kitty",
+            editor,
+            editor_mode,
+        );
     }
 
     pub fn title_len(&self) -> usize {
@@ -208,7 +216,7 @@ impl Notes {
     }
 }
 
-pub fn main(config: &LessonManagerConfigFile, select_course: bool) {
+pub fn main(config: &LessonManagerConfigFile, _select_course: bool) {
     let notes_dir = &config.notes_dir;
     let rofi_options = &config.rofi_options;
     let date_format = &config.date_format;
@@ -223,7 +231,12 @@ pub fn main(config: &LessonManagerConfigFile, select_course: bool) {
     let my_notes = Notes::new(&current_course_dir, date_format, &course_info.start_date);
 
     if my_notes.items.is_empty() {
-        message("No notes found for this course.", "info", rofi_options, None);
+        message(
+            "No notes found for this course.",
+            "info",
+            rofi_options,
+            None,
+        );
         return;
     }
 
@@ -245,13 +258,23 @@ pub fn main(config: &LessonManagerConfigFile, select_course: bool) {
         note_map.insert(display_str, note);
     }
 
-    if let Some(selected) = select_from_rofi(rofi_display_list, rofi_options, "Select Lecture Note".to_string())
-        && let Some(selected_note) = note_map.get(&selected)
-    {
-        println!(
-            "Opening Lecture {} in Neovim...",
-            selected_note.number.unwrap_or(0)
-        );
-        selected_note.edit(&current_course_dir, "nvim", editor_mode);
+    if let Some(selected) = select_from_rofi(
+        rofi_display_list,
+        rofi_options,
+        "Select Lecture Note".to_string(),
+    ) {
+        let note_option = note_map
+            .get(&selected)
+            .or_else(|| note_map.get(&format!(" {}", selected)));
+
+        if let Some(selected_note) = note_option {
+            println!(
+                "Opening Lecture {} in Neovim...",
+                selected_note.number.unwrap_or(0)
+            );
+            selected_note.edit(&current_course_dir, "nvim", editor_mode);
+        } else {
+            println!("Error: Could not find the selected note in the map.");
+        }
     }
 }

@@ -75,9 +75,6 @@ pub enum ThesisCommands {
     /// Pull Samsung notes into corresponding folders
     Pull,
 
-    /// Count total words across all notes
-    WordCount,
-
     /// Show advisor summary from advisor-info.yaml
     Advisor,
 

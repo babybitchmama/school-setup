@@ -1,21 +1,24 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use crate::rofi::input::prompt_input;
-use chrono::Local;
-
-use crate::config::LessonManagerConfigFile;
+use crate::config::{LessonManagerConfigFile, NoteTypeConfig};
 use crate::open_in_neovim;
+use crate::rofi::input::prompt_input;
 use crate::rofi::message::message;
 use crate::rofi::select::select_from_rofi;
+use chrono::Local;
 
-pub fn create_note(config: &LessonManagerConfigFile, note_type: &str) {
+pub fn create_note(
+    config: &LessonManagerConfigFile,
+    note_type: &str,
+    provided_name: Option<String>,
+) {
     let note_config = match config.thesis_note_types.get(note_type) {
         Some(cfg) => cfg,
         None => {
             message(
-                &format!("Error: '{}' not defined in config.yaml", note_type),
+                &format!("Error: '{}' not defined", note_type),
                 "error",
                 &config.rofi_options,
                 None,
@@ -31,30 +34,46 @@ pub fn create_note(config: &LessonManagerConfigFile, note_type: &str) {
         fs::create_dir_all(&target_dir).expect("Failed to create directory");
     }
 
-    let pretty_type_name = note_type.replace('-', " ");
-    if note_config.style == "single" {
-        let naming_strategy = note_config.naming.as_deref().unwrap_or("prompt");
-        let base_name = if naming_strategy == "prompt" {
-            let prompt_text = format!("{} Name", pretty_type_name.to_uppercase());
-            let Some(raw_input) = prompt_input(&prompt_text, &config.rofi_options) else {
-                return;
-            };
-            raw_input.trim().to_lowercase()
-        } else if let Some(format_str) = naming_strategy.strip_prefix("date:") {
-            Local::now().format(format_str).to_string()
-        } else {
-            naming_strategy.to_string()
-        };
+    let initial_input = provided_name.unwrap_or_else(|| {
+        note_config
+            .naming
+            .clone()
+            .unwrap_or_else(|| "prompt".to_string())
+    });
 
-        if base_name.is_empty() {
+    let (actual_style, string_to_evaluate) = if let Some(rest) = initial_input.strip_prefix("file:")
+    {
+        ("single".to_string(), rest.to_string())
+    } else if let Some(rest) = initial_input.strip_prefix("folder:") {
+        ("folder".to_string(), rest.to_string())
+    } else {
+        (note_config.style.clone(), initial_input)
+    };
+
+    let raw_name = if string_to_evaluate == "prompt" {
+        let prompt_text = format!("{} Name", note_type.replace('-', " ").to_uppercase());
+        let Some(input) = prompt_input(&prompt_text, &config.rofi_options) else {
             return;
-        }
+        };
+        input
+    } else if let Some(format_str) = string_to_evaluate.strip_prefix("date:") {
+        Local::now().format(format_str).to_string()
+    } else {
+        string_to_evaluate
+    };
 
+    let clean_name = raw_name.trim().to_lowercase().replace(' ', "-");
+    if clean_name.is_empty() {
+        return;
+    }
+
+    let base_name = Local::now().format(&clean_name).to_string();
+
+    if actual_style == "single" {
         let file_path = target_dir.join(format!("{}.tex", base_name));
         if !file_path.exists() {
             fs::File::create(&file_path).expect("Failed to create file");
         }
-
         open_in_neovim(
             &target_dir,
             &[file_path],
@@ -62,115 +81,32 @@ pub fn create_note(config: &LessonManagerConfigFile, note_type: &str) {
             &config.editor,
             &String::from("n"),
         );
-    } else if note_config.style == "folder" {
-        let mut folder_names = Vec::new();
-        if let Ok(entries) = fs::read_dir(&target_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    if let Some(folder_name) = path.file_name().and_then(|n| n.to_str()) {
-                        if folder_name != "templates" {
-                            folder_names.push(folder_name.to_string());
-                        }
-                    }
-                }
-            }
+    } else if actual_style == "folder" {
+        let folder_dir = target_dir.join(&base_name);
+        if !folder_dir.exists() {
+            fs::create_dir_all(&folder_dir).expect("Failed to create folder");
         }
-        folder_names.sort_by(|a, b| b.cmp(a));
 
-        let create_new_opt = format!("➕ Create New {}", pretty_type_name);
-        let mut display_list = vec![create_new_opt.clone()];
-        display_list.extend(folder_names);
+        let default_files = vec!["notes".to_string()];
+        let files_to_create = note_config.files.as_ref().unwrap_or(&default_files);
+        let mut files_to_open = Vec::new();
 
-        let Some(selected_option) = select_from_rofi(
-            display_list,
-            &config.rofi_options,
-            format!("Select {} folder:", pretty_type_name),
-        ) else {
-            return;
-        };
-
-        if selected_option == create_new_opt {
-            let naming_strategy = note_config.naming.as_deref().unwrap_or("date:%m-%d-%Y");
-
-            let base_name = if naming_strategy == "prompt" {
-                let prompt_text = format!("New {} Name:", pretty_type_name.to_uppercase());
-                let Some(raw_input) = prompt_input(&prompt_text, &config.rofi_options) else {
-                    return;
-                };
-                raw_input.trim().to_lowercase().replace(' ', "-")
-            } else if let Some(format_str) = naming_strategy.strip_prefix("date:") {
-                Local::now().format(format_str).to_string()
-            } else {
-                naming_strategy.to_string()
-            };
-
-            if base_name.is_empty() {
-                return;
-            }
-
-            let folder_dir = target_dir.join(&base_name);
-            if !folder_dir.exists() {
-                fs::create_dir_all(&folder_dir).expect("Failed to create folder");
-            }
-
-            let default_files = vec!["notes".to_string()];
-            let files_to_create = note_config.files.as_ref().unwrap_or(&default_files);
-            let mut files_to_open = Vec::new();
-
-            for file_name in files_to_create {
-                let time_formatted = Local::now().format(file_name).to_string();
-                let final_file_name = time_formatted.replace("{base_name}", &base_name);
-                let file_path = folder_dir.join(format!("{}.tex", final_file_name));
-
-                if !file_path.exists() {
-                    fs::File::create(&file_path).expect("Failed to create file");
-                }
-                files_to_open.push(file_path);
-            }
-            open_in_neovim(
-                &folder_dir,
-                &files_to_open,
-                &config.terminal,
-                &config.editor,
-                &String::from("n"),
-            );
-        } else {
-            let folder_dir = target_dir.join(&selected_option);
-            let prompt_text = format!("New file in {}:", selected_option);
-
-            let Some(raw_input) = prompt_input(&prompt_text, &config.rofi_options) else {
-                return;
-            };
-
-            let clean_input = raw_input.trim().to_lowercase().replace(' ', "-");
-            if clean_input.is_empty() {
-                return;
-            }
-
-            let time_formatted = Local::now().format(&clean_input).to_string();
-            let final_file_name = time_formatted.replace("{base_name}", &selected_option);
-
+        for file_name in files_to_create {
+            let time_formatted = Local::now().format(file_name).to_string();
+            let final_file_name = time_formatted.replace("{base_name}", &base_name);
             let file_path = folder_dir.join(format!("{}.tex", final_file_name));
-
             if !file_path.exists() {
                 fs::File::create(&file_path).expect("Failed to create file");
             }
-
-            open_in_neovim(
-                &folder_dir,
-                &[file_path],
-                &config.terminal,
-                &config.editor,
-                &String::from("n"),
-            );
+            files_to_open.push(file_path);
         }
-    } else {
-        message(
-            &format!("Unknown style '{}' in config", note_config.style),
-            "error",
-            &config.rofi_options,
-            None,
+
+        open_in_neovim(
+            &folder_dir,
+            &files_to_open,
+            &config.terminal,
+            &config.editor,
+            &String::from("n"),
         );
     }
 }
@@ -180,7 +116,7 @@ pub fn list_notes(config: &LessonManagerConfigFile, note_type: &str) {
         Some(cfg) => cfg,
         None => {
             message(
-                &format!("Error: '{}' not defined in config.yaml", note_type),
+                &format!("Error: '{}' not defined", note_type),
                 "error",
                 &config.rofi_options,
                 None,
@@ -192,132 +128,183 @@ pub fn list_notes(config: &LessonManagerConfigFile, note_type: &str) {
     let thesis_path = PathBuf::from(shellexpand::tilde(&config.thesis_dir).to_string());
     let target_dir = thesis_path.join(&note_config.path);
 
-    if !target_dir.exists() {
-        message(
-            &format!("Directory does not exist: {}", target_dir.display()),
-            "error",
-            &config.rofi_options,
-            None,
-        );
-        return;
+    let content_dir = match &note_config.folder {
+        Some(folder_name) => target_dir.join(folder_name),
+        None => target_dir.clone(),
+    };
+
+    if !content_dir.exists() {
+        fs::create_dir_all(&content_dir).expect("Failed to create directory");
     }
 
     let prompt_title = note_type.replace('-', " ");
 
-    if note_config.style == "single" {
-        let pattern = format!("{}/*.tex", target_dir.display());
-        let mut display_list = Vec::new();
-        let mut path_map = HashMap::new();
+    // Pass content_dir as the starting point for interactive navigation
+    interactive_navigate(
+        config,
+        note_config,
+        &content_dir,
+        &thesis_path,
+        &prompt_title,
+    );
+}
 
-        if let Ok(entries) = glob::glob(&pattern) {
-            for path in entries.flatten() {
+fn interactive_navigate(
+    config: &LessonManagerConfigFile,
+    note_config: &NoteTypeConfig,
+    current_dir: &Path,
+    thesis_path: &Path,
+    prompt_title: &str,
+) {
+    let mut files = Vec::new();
+    let mut folders = Vec::new();
+    let mut path_map = HashMap::new();
+    let mut is_dir_map = HashMap::new();
+
+    if let Ok(entries) = fs::read_dir(current_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            if path.is_dir() {
+                if let Some(folder_name) = path.file_name().and_then(|n| n.to_str()) {
+                    if folder_name != "templates" {
+                        let display_name = format!("{}/", folder_name);
+                        folders.push(display_name.clone());
+                        path_map.insert(display_name.clone(), path.clone());
+                        is_dir_map.insert(display_name, true);
+                    }
+                }
+            } else if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("tex") {
                 if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    display_list.push(stem.to_string());
-                    path_map.insert(stem.to_string(), path);
+                    if stem != "master" {
+                        files.push(stem.to_string());
+                        path_map.insert(stem.to_string(), path.clone());
+                        is_dir_map.insert(stem.to_string(), false);
+                    }
                 }
             }
         }
+    }
 
-        if display_list.is_empty() {
-            message("No notes found.", "info", &config.rofi_options, None);
-            return;
-        }
+    files.sort_by(|a, b| b.cmp(a));
+    folders.sort_by(|a, b| b.cmp(a));
 
-        display_list.sort();
+    let mut display_list = files;
+    display_list.extend(folders);
 
-        if let Some(selected) = select_from_rofi(
-            display_list,
-            &config.rofi_options,
-            format!("Select {} note:", prompt_title),
-        ) {
-            if let Some(target_path) = path_map.get(&selected) {
+    let relative_path = current_dir.strip_prefix(thesis_path).unwrap_or(current_dir);
+
+    let prompt_text = if current_dir == thesis_path.join(&note_config.path) {
+        format!(
+            "Select or Create {} ({})",
+            prompt_title,
+            relative_path.display()
+        )
+    } else {
+        format!("Inside {}/", relative_path.display())
+    };
+
+    if let Some(selected) = select_from_rofi(display_list, &config.rofi_options, prompt_text) {
+        if let Some(target_path) = path_map.get(&selected) {
+            let is_folder = is_dir_map.get(&selected).unwrap_or(&false);
+
+            if *is_folder {
+                interactive_navigate(config, note_config, target_path, thesis_path, prompt_title);
+            } else {
                 open_in_neovim(
-                    &target_dir,
+                    current_dir,
                     &[target_path.clone()],
                     &config.terminal,
                     &config.editor,
                     &String::from("n"),
                 );
             }
-        }
-    } else if note_config.style == "folder" {
-        let Ok(entries) = fs::read_dir(&target_dir) else {
-            message(
-                "Failed to read directory",
-                "error",
-                &config.rofi_options,
-                None,
+        } else {
+            handle_interactive_creation(
+                config,
+                note_config,
+                current_dir,
+                thesis_path,
+                &selected,
+                prompt_title,
             );
+        }
+    }
+}
+
+fn handle_interactive_creation(
+    config: &LessonManagerConfigFile,
+    note_config: &NoteTypeConfig,
+    current_dir: &Path,
+    thesis_path: &Path,
+    input: &str,
+    prompt_title: &str,
+) {
+    let (actual_style, string_to_evaluate) = if let Some(rest) = input.strip_prefix("file:") {
+        ("single".to_string(), rest.to_string())
+    } else if let Some(rest) = input.strip_prefix("folder") {
+        ("folder".to_string(), rest.to_string())
+    } else {
+        (note_config.style.clone(), input.to_string())
+    };
+
+    let raw_name = if string_to_evaluate == "prompt" {
+        let prompt_text = format!("{} Name", prompt_title);
+        let Some(ans) = prompt_input(&prompt_text, &config.rofi_options) else {
             return;
         };
+        ans
+    } else if let Some(format_str) = string_to_evaluate.strip_prefix("date:") {
+        Local::now().format(format_str).to_string()
+    } else {
+        string_to_evaluate
+    };
 
-        let mut folder_names = Vec::new();
+    let clean_name = raw_name.trim().to_lowercase().replace(' ', "-");
+    if clean_name.is_empty() {
+        return;
+    }
 
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(folder_name) = path.file_name().and_then(|n| n.to_str()) {
-                    if folder_name != "templates" {
-                        folder_names.push(folder_name.to_string());
-                    }
-                }
+    let base_name = Local::now().format(&clean_name).to_string();
+
+    if actual_style == "single" {
+        let file_path = current_dir.join(format!("{}.tex", base_name));
+        if !file_path.exists() {
+            fs::File::create(&file_path).expect("Failed to create file");
+        }
+        open_in_neovim(
+            current_dir,
+            &[file_path],
+            &config.terminal,
+            &config.editor,
+            &String::from("n"),
+        );
+    } else if actual_style == "folder" {
+        let folder_dir = current_dir.join(&base_name);
+        if !folder_dir.exists() {
+            fs::create_dir_all(&folder_dir).expect("Failed to create folder");
+        }
+
+        let default_files = vec!["notes".to_string()];
+        let files_to_create = note_config.files.as_ref().unwrap_or(&default_files);
+
+        for file_name in files_to_create {
+            let time_formatted = Local::now().format(file_name).to_string();
+            let final_file_name = time_formatted.replace("{base_name}", &base_name);
+            let file_path = folder_dir.join(format!("{}.tex", final_file_name));
+
+            if !file_path.exists() {
+                fs::File::create(&file_path).expect("Failed to create file");
             }
         }
 
-        if folder_names.is_empty() {
-            message("No folders found.", "info", &config.rofi_options, None);
-            return;
-        }
-
-        folder_names.sort_by(|a, b| b.cmp(a));
-
-        if let Some(selected_folder) = select_from_rofi(
-            folder_names,
+        interactive_navigate(config, note_config, &folder_dir, thesis_path, prompt_title);
+    } else {
+        message(
+            &format!("Unknown style '{}'", actual_style),
+            "error",
             &config.rofi_options,
-            format!("Select {} folder:", prompt_title),
-        ) {
-            let selected_dir = target_dir.join(&selected_folder);
-            let pattern = format!("{}/*.tex", selected_dir.display());
-
-            let mut file_display_list = Vec::new();
-            let mut file_path_map = HashMap::new();
-
-            if let Ok(file_entries) = glob::glob(&pattern) {
-                for path in file_entries.flatten() {
-                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        file_display_list.push(stem.to_string());
-                        file_path_map.insert(stem.to_string(), path);
-                    }
-                }
-            }
-
-            if file_display_list.is_empty() {
-                message(
-                    "No files found in this folder.",
-                    "info",
-                    &config.rofi_options,
-                    None,
-                );
-                return;
-            }
-
-            file_display_list.sort();
-
-            if let Some(selected_file) = select_from_rofi(
-                file_display_list,
-                &config.rofi_options,
-                "Select file:".to_string(),
-            ) {
-                if let Some(target_path) = file_path_map.get(&selected_file) {
-                    open_in_neovim(
-                        &selected_dir,
-                        &[target_path.clone()],
-                        &config.terminal,
-                        &config.editor,
-                        &String::from("n"),
-                    );
-                }
-            }
-        }
+            None,
+        );
     }
 }

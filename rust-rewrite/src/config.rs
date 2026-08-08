@@ -10,6 +10,7 @@ pub struct NoteTypeConfig {
     pub style: String,
     pub naming: Option<String>,
     pub files: Option<Vec<String>>,
+    pub folder: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
