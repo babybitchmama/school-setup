@@ -208,7 +208,7 @@ impl Notes {
     }
 }
 
-pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
+pub fn main(config: &LessonManagerConfigFile, select_course: bool) {
     let notes_dir = &config.notes_dir;
     let rofi_options = &config.rofi_options;
     let date_format = &config.date_format;

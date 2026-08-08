@@ -212,7 +212,7 @@ pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
     let terminal = &config.terminal;
     let editor = &config.editor;
     let pdf_viewer = &config.pdf_viewer;
-    let mut course = &config.current_course;
+    let course = &config.current_course;
 
     if !current_course_boolean {}
 

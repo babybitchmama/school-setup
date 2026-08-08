@@ -2,7 +2,7 @@ use crate::config::AdvisorInfo;
 use crate::rofi::message::plain_message;
 
 pub fn main(config: &crate::config::LessonManagerConfigFile) {
-    let advisor_path = format!("{}/advisor-info.yaml", shellexpand::tilde(&config.thesis_dir));
+    let advisor_path = format!("{}/{}", shellexpand::tilde(&config.thesis_dir), &config.thesis_advisor_info_file);
     let advisor: AdvisorInfo = crate::yaml::load_file(&advisor_path)
         .expect("Failed to load advisor.yaml");
 

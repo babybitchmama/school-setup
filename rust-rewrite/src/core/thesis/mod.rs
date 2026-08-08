@@ -1,68 +1,86 @@
+// src/core/thesis/mod.rs
+
 pub mod advisor;
-pub mod meetings;
+pub mod compile;
 pub mod notes;
 pub mod papers;
-pub mod sections;
 pub mod sync;
 
-// Import both enums from your main crate
 use crate::config::LessonManagerConfigFile;
-use crate::{ThesisActions, ThesisCommands};
+use crate::{NoteActions, ThesisCommands};
 
 pub fn main(config: &LessonManagerConfigFile, command: &ThesisCommands) {
     match command {
-        ThesisCommands::BrainDump { action } => match action {
-            ThesisActions::New => notes::new_brain_dump(config),
-            ThesisActions::List => notes::list_brain_dump_files(config),
-        },
-
-        ThesisCommands::Meetings { action } => match action {
-            ThesisActions::New => meetings::new_meeting(config),
-            ThesisActions::List => meetings::list_meetings(config),
-        },
-
-        ThesisCommands::Sections { action } => match action {
-            ThesisActions::New => sections::new_section(config),
-            ThesisActions::List => sections::list_section_notes(config),
+        ThesisCommands::Notes { note_type, action } => match action {
+            NoteActions::New => notes::create_note(config, note_type),
+            NoteActions::List => notes::list_notes(config, note_type),
         },
 
         ThesisCommands::Pull => {
             println!("Pulling Samsung notes... (Coming soon)");
-            // sync::pull_notes(config);
         }
 
-        ThesisCommands::Compile {
-            brain_dumps,
-            meeting_notes,
-            sections,
-        } => {
-            let mut compile_brain_dumps = *brain_dumps;
-            let mut compile_meeting_notes = *meeting_notes;
-            let mut compile_sections = *sections;
+        // ThesisCommands::Compile { targets, all } => {
+        //     let available_types = &config.thesis_note_types;
+        //     let mut to_compile = Vec::new();
 
-            if !brain_dumps && !meeting_notes && !sections {
-                compile_brain_dumps = true;
-                compile_meeting_notes = true;
-                compile_sections = true;
+        //     if *all {
+        //         // If they pass --all, grab every note type from config.yaml
+        //         to_compile = available_types.keys().cloned().collect();
+        //     } else if let Some(t_list) = targets {
+        //         // Check each target the user passed against the config
+        //         for t in t_list {
+        //             if available_types.contains_key(t) {
+        //                 to_compile.push(t.clone());
+        //             } else {
+        //                 println!(
+        //                     "Warning: '{}' is not defined in config.yaml. Skipping.",
+        //                     t
+        //                 );
+        //             }
+        //         }
+        //     } else {
+        //         println!("No targets provided. Running default master compile...");
+        //         // Add your default compile logic here
+        //     }
+
+        //     if to_compile.is_empty() {
+        //         println!("Nothing to compile.");
+        //         return;
+        //     }
+
+        //     // Run the compile loop
+        //     for target in to_compile {
+        //         let note_config = available_types.get(&target).unwrap();
+        //         println!(
+        //             "Compiling '{}' from path: {} ...",
+        //             target, note_config.path
+        //         );
+
+        //         // Call your actual compile functions here!
+        //         // compile::run_latex_make(config, &note_config.path);
+        //     }
+        // }
+
+        ThesisCommands::Compile { targets, all } => {
+            let available_types = &config.thesis_note_types;
+            let mut to_compile = Vec::new();
+
+            if *all {
+                to_compile = available_types.keys().cloned().collect();
+            } else if let Some(t_list) = targets {
+                to_compile = t_list.clone();
+            } else {
+                println!("No targets provided. Use --targets <names> or --all.");
+                return;
             }
 
-            if compile_brain_dumps {
-                println!("Compiling brain dumps...");
-                // compile::run_brain_dumps(config);
-            }
-            if compile_meeting_notes {
-                println!("Compiling meeting notes...");
-                // compile::run_meeting_notes(config);
-            }
-            if compile_sections {
-                println!("Compiling sections...");
-                // compile::run_sections(config);
-            }
+            // Call the compiler
+            crate::core::thesis::compile::generate_and_compile(config, &to_compile);
         }
 
         ThesisCommands::WordCount => {
             println!("Counting words... (Coming soon)");
-            // compile::word_count(config);
         }
 
         ThesisCommands::Advisor => {

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 mod config;
 mod core;
@@ -31,58 +31,45 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum RofiCommands {
+    /// View all assignments in rofi
     Assignments,
+
+    /// View all books in rofi
     Books,
+
+    /// View all courses in rofi
     Courses,
+
+    /// View all notes in rofi
     Notes,
 }
 
-#[derive(Subcommand, Debug)]
-pub enum ThesisCompileOptions {
-    BrainDumps,
-    MeetingNotes,
-    SectionNotes,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum ThesisActions {
+#[derive(ValueEnum, Clone, Debug)]
+pub enum NoteActions {
     New,
     List,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum ThesisCommands {
-    /// Manage brain dump notes (new, list)
-    BrainDump {
-        #[command(subcommand)]
-        action: ThesisActions,
+    /// List/create a note type (configured in the config.yaml file)
+    Notes {
+        /// Specify the note type to manage (e.g., "brain_dump", "research_notes")
+        note_type: String,
+
+        /// Specify the action to perform on the note type
+        action: NoteActions,
     },
 
-    /// Manage meeting notes (new, list)
-    Meetings {
-        #[command(subcommand)]
-        action: ThesisActions,
-    },
-
-    /// Manage section notes (new, list)
-    Sections {
-        #[command(subcommand)]
-        action: ThesisActions,
-    },
-
-    /// Compile all notes into a single document
+    /// Compile all/some notes into a single document
     Compile {
         /// Compile brain dump notes
-        #[arg(long)]
-        brain_dumps: bool,
+        #[arg(num_args = 1..)]
+        targets: Option<Vec<String>>,
 
-        /// Compile meeting notes
+        /// Flag to compile EVERYTHING defined in config.yaml
         #[arg(long)]
-        meeting_notes: bool,
-
-        /// Compile section notes
-        #[arg(long)]
-        sections: bool,
+        all: bool,
     },
 
     /// Pull Samsung notes into corresponding folders
@@ -132,22 +119,29 @@ pub enum FigureCommands {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// View next class, assignment, and exam dates from your calendar
     Calendar,
 
+    /// Initialize course directories based on the configuration files
     InitCourses,
 
+    /// Launch Rofi interface for assignments, books, courses, and notes
     Rofi {
         #[command(subcommand)]
         command: RofiCommands,
+
+        /// Flag to indicate whether to use the current course (default) or to ask for a course selection
         #[arg(long)]
-        current_course: bool,
+        select_course: bool,
     },
 
+    /// Manage thesis notes, compile documents, and pull Samsung notes
     Thesis {
         #[command(subcommand)]
         command: ThesisCommands,
     },
 
+    /// Create, list, edit, and manage figures
     Figures {
         #[command(subcommand)]
         command: FigureCommands,
@@ -190,20 +184,20 @@ pub fn open_in_neovim(
 fn handle_rofi_command(
     command: &RofiCommands,
     config: &config::LessonManagerConfigFile,
-    current_course: bool,
+    select_course: bool,
 ) {
     match command {
         RofiCommands::Assignments => {
-            assignments::main(config, current_course);
+            assignments::main(config, select_course);
         }
         RofiCommands::Books => {
-            books::main(config, current_course);
+            books::main(config, select_course);
         }
         RofiCommands::Courses => {
-            courses::main(config, current_course);
+            courses::main(config, select_course);
         }
         RofiCommands::Notes => {
-            notes::main(config, current_course);
+            notes::main(config, select_course);
         }
     }
 }
@@ -244,9 +238,9 @@ fn main() {
         }
         Commands::Rofi {
             command,
-            current_course,
+            select_course,
         } => {
-            handle_rofi_command(command, &config, *current_course);
+            handle_rofi_command(command, &config, *select_course);
         }
         Commands::Thesis { command } => {
             core::thesis::main(&config, command);

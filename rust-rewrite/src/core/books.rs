@@ -174,6 +174,6 @@ impl Book {
     }
 }
 
-pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
-    let book = Book::new(&config, "mth-445");
+pub fn main(config: &LessonManagerConfigFile, _current_course: bool) {
+    let _book = Book::new(&config, "mth-445");
 }

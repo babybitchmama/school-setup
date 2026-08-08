@@ -4,6 +4,14 @@ use std::path::PathBuf;
 
 pub type AssignmentFolders = HashMap<String, String>;
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct NoteTypeConfig {
+    pub path: String,
+    pub style: String,
+    pub naming: Option<String>,
+    pub files: Option<Vec<String>>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LessonManagerConfigFile {
     pub calendar_id: Option<String>,
@@ -18,6 +26,9 @@ pub struct LessonManagerConfigFile {
     pub root: String,
     pub templates_dir: String,
     pub thesis_dir: String,
+    pub thesis_advisor_info_file: String,
+
+    pub thesis_note_types: HashMap<String, NoteTypeConfig>,
     pub current_course: String,
     pub polybar_current_course_file: String,
     pub date_format: String,

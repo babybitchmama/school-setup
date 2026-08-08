@@ -6,7 +6,7 @@ use crate::core::{
 use crate::rofi::select::select_from_rofi;
 use std::collections::HashMap;
 
-pub fn main(config: &LessonManagerConfigFile, current_course: bool) {
+pub fn main(config: &LessonManagerConfigFile, _current_course: bool) {
     let root_dir_path = &config.root;
     let notes_dir = &config.notes_dir;
     let rofi_options = &config.rofi_options;
