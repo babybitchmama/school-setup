@@ -1,5 +1,3 @@
-// src/core/thesis/mod.rs
-
 pub mod advisor;
 pub mod compile;
 pub mod notes;

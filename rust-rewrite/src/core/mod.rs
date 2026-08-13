@@ -79,7 +79,7 @@ pub mod assignments;
 pub mod books;
 pub mod calendar;
 pub mod courses;
-pub mod inkscape;
+pub mod figures;
 pub mod notes;
 pub mod sync;
 pub mod thesis;

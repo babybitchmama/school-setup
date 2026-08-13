@@ -157,7 +157,6 @@ fn display_paper_info(paper: &BibEntry, display_list: &mut Vec<String>, path_map
     path_map.insert(display_str, pdf_path);
 }
 
-// Helper to pull text out of BibTeX braces `{...}` or quotes `"..."`
 fn extract_bib_value(line: &str) -> String {
     if let Some(start) = line.find('{') {
         if let Some(end) = line.rfind('}') {

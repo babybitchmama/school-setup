@@ -37,8 +37,10 @@ pub struct LessonManagerConfigFile {
     pub user: String,
     pub books_folder: String,
     pub book_solution_folder: String,
+    pub figures: FiguresConfig,
     pub figures_dir: String,
     pub assignments_dir: String,
+    pub assignments_root: String,
     pub assignment_folders: AssignmentFolders,
     pub rofi_options: Vec<String>,
     pub folders: Vec<String>,
@@ -131,6 +133,11 @@ pub struct AssignmentYaml {
     pub number: u32,
     pub due_date: String,
     pub url: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct FiguresConfig {
+    pub figure_template: Vec<String>,
 }
 
 use indexmap::IndexMap;
