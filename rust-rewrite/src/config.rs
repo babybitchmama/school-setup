@@ -17,32 +17,39 @@ pub struct NoteTypeConfig {
 pub struct LessonManagerConfigFile {
     pub calendar_id: Option<String>,
     pub drive_folder_id: Option<String>,
+    pub onedrive_folder_id: Option<String>,
     pub editor: String,
     pub editor_mode: String,
     pub terminal: String,
     pub pdf_viewer: String,
-    pub create_readme_file: bool,
     pub highlight_current_course: bool,
-    pub notes_dir: String,
-    pub root: String,
-    pub templates_dir: String,
-    pub thesis_dir: String,
-    pub thesis_advisor_info_file: String,
 
-    pub thesis_note_types: HashMap<String, NoteTypeConfig>,
-    pub current_course: String,
-    pub polybar_current_course_file: String,
     pub date_format: String,
     pub home: String,
     pub user: String,
+    pub rofi_options: Vec<String>,
+
+    pub notes_dir: String,
+    pub root: String,
+    pub templates_dir: String,
+    pub current_course: String,
+    pub polybar_current_course_file: String,
+
     pub books_folder: String,
     pub book_solution_folder: String,
-    pub figures: FiguresConfig,
-    pub figures_dir: String,
+
     pub assignments_dir: String,
     pub assignments_root: String,
     pub assignment_folders: AssignmentFolders,
-    pub rofi_options: Vec<String>,
+
+    pub thesis_dir: String,
+    pub thesis_advisor_info_file: String,
+    pub thesis_note_types: HashMap<String, NoteTypeConfig>,
+
+    pub figures_dir: String,
+    pub figure_template: Vec<String>,
+
+    pub create_readme_file: bool,
     pub folders: Vec<String>,
     pub files: HashMap<String, String>,
 }
@@ -133,11 +140,6 @@ pub struct AssignmentYaml {
     pub number: u32,
     pub due_date: String,
     pub url: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct FiguresConfig {
-    pub figure_template: Vec<String>,
 }
 
 use indexmap::IndexMap;

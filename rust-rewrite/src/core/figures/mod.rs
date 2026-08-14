@@ -15,11 +15,11 @@ pub fn main(config: &LessonManagerConfigFile, command: &FigureCommands) {
         FigureCommands::Copy { target } => copy::execute_copy(config, target),
         FigureCommands::Edit { target } => edit::execute_edit(config, target),
         FigureCommands::Preview { target } => preview::execute_preview(config, target),
-        FigureCommands::Watch {} => println!("🚧 Watch command coming soon!"),
-        FigureCommands::Shortcuts => println!("🚧 Shortcuts daemon coming soon!"),
+        FigureCommands::Watch {} => println!("Watch command coming soon!"),
+        FigureCommands::Shortcuts => println!("Shortcuts daemon coming soon!"),
         FigureCommands::Kill { daemon } => {
             let target = daemon.clone().unwrap_or_else(|| "both".to_string());
-            println!("🚧 Kill command coming soon for: {}", target);
+            println!("Kill command coming soon for: {}", target);
         }
     }
 }
@@ -30,8 +30,15 @@ pub fn main(config: &LessonManagerConfigFile, command: &FigureCommands) {
 
 /// Resolves the base course directory (e.g. ~/Documents/school-notes/current-course or specific course)
 pub fn resolve_course_path(config: &LessonManagerConfigFile, course_name: Option<&str>) -> PathBuf {
-    let expanded = shellexpand::tilde(&config.notes_dir).to_string();
-    PathBuf::from(expanded).join(course_name.unwrap_or("current-course"))
+    let root_expanded = shellexpand::tilde(&config.notes_dir).to_string();
+
+    match course_name {
+        Some(name) => PathBuf::from(root_expanded).join(name),
+        None => {
+            // Retrieve the current course name from the config map/variable
+            PathBuf::from(shellexpand::tilde(&config.current_course).to_string())
+        }
+    }
 }
 
 /// Resolves the thesis directory based on note_type
@@ -66,7 +73,9 @@ pub fn resolve_assignment_path(
     course_name: Option<&str>,
 ) -> PathBuf {
     let course_path = resolve_course_path(config, course_name);
-    course_path.join(&config.assignments_dir).join(&config.assignments_root)
+    course_path
+        .join(&config.assignments_dir)
+        .join(&config.assignments_root)
 }
 
 /// Ensures the figures directory exists on disk and returns its path
@@ -76,17 +85,6 @@ pub fn ensure_directory(base_dir: &Path, figures_dir: &String) -> PathBuf {
         fs::create_dir_all(&figures_dir).expect("Failed to create figures directory");
     }
     figures_dir
-}
-
-/// Walks up parent directories from `figures_path` until it finds `master.tex`
-pub fn find_master_tex(mut current_dir: &Path) -> Option<PathBuf> {
-    loop {
-        let master = current_dir.join("master.tex");
-        if master.exists() {
-            return Some(master);
-        }
-        current_dir = current_dir.parent()?;
-    }
 }
 
 /// Reads the figures directory and returns a sorted list of `.svg` filenames
@@ -129,21 +127,21 @@ pub fn spawn_inkscape(figures_dir: &Path, name: Option<&str>) {
         };
         let file_path = abs_dir.join(&svg_name);
         cmd.arg(&file_path);
-        println!("🎨 Opening {} in Inkscape...", file_path.display());
+        println!("Opening {} in Inkscape...", file_path.display());
     } else {
         println!(
-            "🎨 Opening empty Inkscape instance in {}...",
+            "Opening empty Inkscape instance in {}...",
             abs_dir.display()
         );
     }
 
     if let Err(e) = cmd.spawn() {
-        println!("❌ Failed to spawn Inkscape. Error: {}", e);
+        println!("Failed to spawn Inkscape. Error: {}", e);
     }
 }
 
 pub fn spawn_tablet(figures_dir: &Path, name: Option<&str>) {
-    println!("📱 Tablet mode activated!");
+    println!("Tablet mode activated!");
     println!("Saving to: {}", figures_dir.display());
     if let Some(file_name) = name {
         println!("Target file: {}", file_name);

@@ -13,7 +13,7 @@ pub fn execute_edit(config: &LessonManagerConfigFile, target: &EditTarget) {
         EditTarget::Thesis { note_type, .. } => match resolve_thesis_path(config, note_type) {
             Ok(base) => ensure_directory(&base, &config.figures_dir),
             Err(e) => {
-                println!("❌ Error: {}", e);
+                println!("Error: {}", e);
                 return;
             }
         },
@@ -33,7 +33,7 @@ pub fn execute_edit(config: &LessonManagerConfigFile, target: &EditTarget) {
     // 3. Scan directory for available .svg files
     let svg_files = get_svg_filenames(&figures_path);
     if svg_files.is_empty() {
-        println!("❌ No figures found in {}", figures_path.display());
+        println!("No figures found in {}", figures_path.display());
         return;
     }
 
@@ -51,7 +51,7 @@ pub fn execute_edit(config: &LessonManagerConfigFile, target: &EditTarget) {
             }
         }
         _ => {
-            println!("❌ No figure selected.");
+            println!("No figure selected.");
         }
     }
 }

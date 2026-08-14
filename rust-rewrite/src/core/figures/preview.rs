@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::{
-    ensure_directory, find_master_tex, resolve_assignment_path, resolve_course_path,
-    resolve_thesis_path,
+    ensure_directory, resolve_assignment_path, resolve_course_path, resolve_thesis_path,
 };
 use crate::commands::CopyTarget;
 use crate::config::LessonManagerConfigFile;
+use crate::core::figures::get_svg_filenames;
 
 pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
-    // 1. Resolve the figures directory
+    // 1. Resolve the target figures directory
     let figures_path = match target {
         CopyTarget::Notes { course_name, .. } => {
             let base = resolve_course_path(config, course_name.as_deref());
@@ -18,10 +18,7 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         }
         CopyTarget::Thesis { note_type, .. } => match resolve_thesis_path(config, note_type) {
             Ok(base) => ensure_directory(&base, &config.figures_dir),
-            Err(e) => {
-                println!("❌ Error: {}", e);
-                return;
-            }
+            Err(e) => { println!("Error: {}", e); return; }
         },
         CopyTarget::Assignments { course_name, .. } => {
             let base = resolve_assignment_path(config, course_name.as_deref());
@@ -29,13 +26,15 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         }
     };
 
+    println!("{}", figures_path.display());
+
     let shared = match target {
         CopyTarget::Notes { shared, .. } => shared,
         CopyTarget::Thesis { shared, .. } => shared,
         CopyTarget::Assignments { shared, .. } => shared,
     };
 
-    // 2. Select figure (via --name flag or Rofi)
+    // 2. Select the figure (via --name flag or Rofi selection)
     let selected_figure = if let Some(explicit_name) = &shared.name {
         let name = if explicit_name.ends_with(".svg") {
             explicit_name.clone()
@@ -46,7 +45,7 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
             Some(name)
         } else {
             println!(
-                "❌ Figure '{}' not found in {}",
+                "Figure '{}' not found in {}",
                 name,
                 figures_path.display()
             );
@@ -55,7 +54,7 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
     } else {
         let svg_files = get_svg_filenames(&figures_path);
         if svg_files.is_empty() {
-            println!("❌ No figures found in {}", figures_path.display());
+            println!("No figures found in {}", figures_path.display());
             return;
         }
         crate::rofi::select::select_from_rofi(svg_files, &config.rofi_options, "Preview Figure".to_string())
@@ -64,13 +63,14 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
     let figure_file = match selected_figure {
         Some(f) if !f.is_empty() => f,
         _ => {
-            println!("❌ No figure selected for preview.");
+            println!("No figure selected for preview.");
             return;
         }
     };
 
-    // 3. Generate LaTeX snippet
     let name_only = figure_file.strip_suffix(".svg").unwrap_or(&figure_file);
+
+    // 3. Generate the LaTeX snippet using config template
     let caption = name_only
         .replace(['-', '_'], " ")
         .split_whitespace()
@@ -86,7 +86,6 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
     let label = format!("fig:{}", name_only);
 
     let figure_snippet = config
-        .figures
         .figure_template
         .iter()
         .map(|line| {
@@ -97,127 +96,125 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         .collect::<Vec<_>>()
         .join("\n");
 
-    // 4. Locate master.tex automatically
-    let master_path = match find_master_tex(&figures_path) {
-        Some(path) => path,
-        None => {
-            println!(
-                "❌ Could not find 'master.tex' by searching upward from {}",
-                figures_path.display()
-            );
-            return;
-        }
+    // 4. Set up the isolated staging directory in /tmp
+    // Format: /tmp/lesson-manager/preview/<target-type>-<figure-name>/
+    let target_type_str = match target {
+        CopyTarget::Notes { .. } => "notes",
+        CopyTarget::Thesis { .. } => "thesis",
+        CopyTarget::Assignments { .. } => "assignment",
     };
 
-    let workspace_dir = master_path.parent().unwrap();
+    let staging_dir = PathBuf::from(format!(
+        "/tmp/lesson-manager/preview/{}-{}",
+        target_type_str, name_only
+    ));
+    if staging_dir.exists() {
+        let _ = fs::remove_dir_all(&staging_dir);
+    }
 
-    // 5. Stage files in /tmp/lesson-manager
-    let tmp_base = PathBuf::from("/tmp/lesson-manager");
-    if let Err(e) = fs::create_dir_all(&tmp_base) {
-        println!("❌ Failed to create temporary directory: {}", e);
+    let staging_figures_dir = staging_dir.join("figures");
+    if let Err(e) = fs::create_dir_all(&staging_figures_dir) {
+        println!("Failed to create staging directory: {}", e);
         return;
     }
 
-    let folder_name = workspace_dir.file_name().unwrap_or_default();
-    let staging_dir = tmp_base.join(folder_name);
-
-    if let Err(e) = copy_dir_all(workspace_dir, &staging_dir) {
-        println!("❌ Failed to copy workspace to staging directory: {}", e);
+// 5. Copy ONLY files matching the selected figure basename (e.g., figure-1.*)
+    if let Err(e) = copy_matching_figure_files(&figures_path, &staging_figures_dir, name_only) {
+        println!("Failed to copy figure assets to staging directory: {}", e);
         return;
     }
 
-    // 6. Replace document body in staged master.tex
-    let staging_master_path = staging_dir.join("master.tex");
-    let original_master_content = match fs::read_to_string(&staging_master_path) {
+    // 6. Locate and load the global preview template
+    let template_path =
+        shellexpand::tilde("~/.config/lesson-manager/figures/preview-template.tex").into_owned();
+    let template_content = match fs::read_to_string(&template_path) {
         Ok(c) => c,
-        Err(e) => {
-            println!("❌ Failed to read staged master.tex: {}", e);
-            return;
+        Err(_) => {
+            // Fallback default template if file doesn't exist yet
+            format!(
+                r#"\documentclass{{article}}
+\usepackage{{import}}
+\usepackage{{graphicx}}
+\usepackage{{xcolor}}
+\usepackage{{amsmath,amssymb,amsfonts}}
+
+\newcommand{{\incfig}}[2][1]{{%
+    \def\svgwidth{{#1\columnwidth}}%
+    \import{{./figures/}}{{#2.pdf_tex}}%
+}}
+
+\begin{{document}}
+\pagestyle{{empty}}
+\centering
+
+{{figure_snippet}}
+
+\end{{document}}
+"#
+            )
         }
     };
 
-    let modified_content = replace_document_body(&original_master_content, &figure_snippet);
+    // Replace placeholder with actual figure snippet
+    let master_content = template_content.replace("{figure_snippet}", &figure_snippet);
+    let staging_master_path = staging_dir.join("master.tex");
 
-    if let Err(e) = fs::write(&staging_master_path, modified_content) {
-        println!("❌ Failed to write snippet to staged master.tex: {}", e);
+    if let Err(e) = fs::write(&staging_master_path, master_content) {
+        println!("Failed to write staged master.tex: {}", e);
         return;
     }
 
-    println!(
-        "📄 Staged and isolated figure preview at: {}",
-        staging_master_path.display()
-    );
+    println!("Staged preview at: {}", staging_master_path.display());
 
-    // 7. Compile inside /tmp and open PDF
+    // 7. Compile locally with pdflatex and open resulting PDF
     compile_and_open(&staging_master_path, &staging_dir, &config.pdf_viewer);
 }
 
-fn replace_document_body(master_content: &str, snippet: &str) -> String {
-    let begin_tag = "\\begin{document}";
-    let end_tag = "\\end{document}";
-
-    if let Some(begin_idx) = master_content.find(begin_tag) {
-        let body_start = begin_idx + begin_tag.len();
-        if let Some(end_rel_idx) = master_content[body_start..].find(end_tag) {
-            let body_end = body_start + end_rel_idx;
-
-            let mut new_content = String::with_capacity(master_content.len());
-            new_content.push_str(&master_content[..body_start]);
-            new_content.push_str("\n\n");
-            new_content.push_str(snippet);
-            new_content.push_str("\n\n");
-            new_content.push_str(&master_content[body_end..]);
-            return new_content;
-        }
-    }
-
-    format!("{}\n\n{}", master_content, snippet)
-}
-
-fn get_svg_filenames(figures_dir: &PathBuf) -> Vec<String> {
-    fs::read_dir(figures_dir)
-        .map(|entries| {
-            entries
-                .flatten()
-                .map(|e| e.path())
-                .filter(|p| p.extension().is_some_and(|ext| ext == "svg"))
-                .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(String::from))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
-    fs::create_dir_all(&dst)?;
-    for entry in fs::read_dir(src)? {
+/// Copies only files whose stems match the target figure name (e.g., figure-1.svg, figure-1.pdf_tex, etc.)
+fn copy_matching_figure_files(src_dir: &Path, dst_dir: &Path, base_name: &str) -> std::io::Result<()> {
+    for entry in fs::read_dir(src_dir)? {
         let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        } else {
-            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                if stem == base_name {
+                    if let Some(file_name) = path.file_name() {
+                        fs::copy(&path, dst_dir.join(file_name))?;
+                    }
+                }
+            }
         }
     }
     Ok(())
 }
 
 fn compile_and_open(master_file: &Path, work_dir: &Path, pdf_viewer: &String) {
-    println!("⚙️ Compiling isolated preview document from /tmp...");
+    println!("Compiling preview document with pdflatex...");
 
-    let status = Command::new("pdflatex")
-        .arg(master_file)
-        .current_dir(work_dir)
-        .status();
+    // Run pdflatex twice to ensure correct rendering/references
+    for pass in 1..=2 {
+        let status = Command::new("pdflatex")
+            .arg("-interaction=nonstopmode")
+            .arg(master_file)
+            .current_dir(work_dir)
+            .status();
 
-    match status {
-        Ok(s) if s.success() => {
-            println!("✅ Compilation successful!");
-            let pdf_path = master_file.with_extension("pdf");
-            println!("📱 Opening PDF: {}", pdf_path.display());
-            let _ = Command::new(&pdf_viewer).arg(pdf_path).spawn();
-        }
-        _ => {
-            println!("❌ Compilation failed. Check your tectonic/latex logs above.");
+        match status {
+            Ok(s) if s.success() => {
+                if pass == 2 {
+                    println!("Compilation successful!");
+                    let pdf_path = master_file.with_extension("pdf");
+                    println!("Opening PDF: {}", pdf_path.display());
+                    let _ = Command::new(pdf_viewer).arg(pdf_path).spawn();
+                }
+            }
+            _ => {
+                println!(
+                    "Compilation failed on pass {}. Check your pdflatex log output above.",
+                    pass
+                );
+                return;
+            }
         }
     }
 }

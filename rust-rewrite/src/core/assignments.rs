@@ -286,7 +286,7 @@ pub fn main(config: &LessonManagerConfigFile, current_course_boolean: bool) {
             }
         } else {
             println!(
-                "⚠️ CRITICAL ERROR: Rofi returned a string not found in the map: '{}'",
+                "CRITICAL ERROR: Rofi returned a string not found in the map: '{}'",
                 selected_str
             );
         }

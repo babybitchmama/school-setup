@@ -1,7 +1,17 @@
+pub mod assignments;
+pub mod books;
+pub mod calendar;
+pub mod courses;
+pub mod figures;
+pub mod notes;
+pub mod sync;
+pub mod thesis;
+
+use std::path::PathBuf;
+
 pub fn get_current_course_info(current_course_path: &str) -> crate::config::CourseYamlFile {
     let expanded_path = shellexpand::tilde(current_course_path);
-    crate::yaml::load_file(expanded_path.as_ref())
-        .expect("Failed to load current course info.yaml")
+    crate::yaml::load_file(expanded_path.as_ref()).expect("Failed to load current course info.yaml")
 }
 
 pub fn get_courses_in_path(root_dir_path: &str) -> Vec<String> {
@@ -70,16 +80,3 @@ pub fn format_course_name(
         short = course_short_name
     )
 }
-
-// Imports
-use std::path::PathBuf;
-
-// Modules
-pub mod assignments;
-pub mod books;
-pub mod calendar;
-pub mod courses;
-pub mod figures;
-pub mod notes;
-pub mod sync;
-pub mod thesis;

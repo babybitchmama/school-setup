@@ -17,7 +17,7 @@ pub fn execute_create(config: &LessonManagerConfigFile, target: &CreateTarget) {
         CreateTarget::Thesis { note_type, .. } => {
             match resolve_thesis_path(config, note_type) {
                 Ok(base) => ensure_directory(&base, &config.figures_dir),
-                Err(e) => { println!("❌ Error: {}", e); return; }
+                Err(e) => { println!("Error: {}", e); return; }
             }
         }
         CreateTarget::Assignments { course_name, .. } => {
@@ -33,7 +33,7 @@ pub fn execute_create(config: &LessonManagerConfigFile, target: &CreateTarget) {
     };
 
     let final_name = prepare_figure_file(&figures_path, shared);
-    crate::core::figures::copy::copy_template_to_clipboard(&config.figures, &final_name);
+    crate::core::figures::copy::copy_template_to_clipboard(&config.figure_template, &final_name);
 
     if shared.tablet {
         super::spawn_tablet(&figures_path, Some(&final_name));
@@ -63,7 +63,7 @@ fn prepare_figure_file(figures_dir: &Path, shared: &SharedCreateArgs) -> String 
     if !file_path.exists() {
         if shared.no_template {
             let _ = fs::write(&file_path, minimal_svg);
-            println!("📄 Created blank figure: {}", file_name);
+            println!("Created blank figure: {}", file_name);
         } else {
             let default_template = "~/.config/lesson-manager/figures/template.svg";
             let template_path = PathBuf::from(
@@ -72,14 +72,14 @@ fn prepare_figure_file(figures_dir: &Path, shared: &SharedCreateArgs) -> String 
             );
 
             if template_path.exists() && fs::copy(&template_path, &file_path).is_ok() {
-                println!("📄 Created new figure from template: {}", file_name);
+                println!("Created new figure from template: {}", file_name);
             } else {
                 let _ = fs::write(&file_path, minimal_svg);
-                println!("📄 Created blank fallback figure: {}", file_name);
+                println!("Created blank fallback figure: {}", file_name);
             }
         }
     } else {
-        println!("📂 Opening existing figure: {}", file_name);
+        println!("Opening existing figure: {}", file_name);
     }
 
     file_name
