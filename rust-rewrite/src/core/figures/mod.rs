@@ -1,7 +1,9 @@
 pub mod copy;
+pub mod kill;
 pub mod create;
 pub mod edit;
 pub mod preview;
+pub mod watch;
 
 use crate::FigureCommands;
 use crate::config::LessonManagerConfigFile;
@@ -15,7 +17,7 @@ pub fn main(config: &LessonManagerConfigFile, command: &FigureCommands) {
         FigureCommands::Copy { target } => copy::execute_copy(config, target),
         FigureCommands::Edit { target } => edit::execute_edit(config, target),
         FigureCommands::Preview { target } => preview::execute_preview(config, target),
-        FigureCommands::Watch {} => println!("Watch command coming soon!"),
+        FigureCommands::Watch {} => watch::execute_watch(config),
         FigureCommands::Shortcuts => println!("Shortcuts daemon coming soon!"),
         FigureCommands::Kill { daemon } => {
             let target = daemon.clone().unwrap_or_else(|| "both".to_string());
@@ -35,7 +37,6 @@ pub fn resolve_course_path(config: &LessonManagerConfigFile, course_name: Option
     match course_name {
         Some(name) => PathBuf::from(root_expanded).join(name),
         None => {
-            // Retrieve the current course name from the config map/variable
             PathBuf::from(shellexpand::tilde(&config.current_course).to_string())
         }
     }

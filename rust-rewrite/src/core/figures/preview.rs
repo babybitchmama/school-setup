@@ -10,7 +10,6 @@ use crate::config::LessonManagerConfigFile;
 use crate::core::figures::get_svg_filenames;
 
 pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
-    // 1. Resolve the target figures directory
     let figures_path = match target {
         CopyTarget::Notes { course_name, .. } => {
             let base = resolve_course_path(config, course_name.as_deref());
@@ -34,7 +33,6 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         CopyTarget::Assignments { shared, .. } => shared,
     };
 
-    // 2. Select the figure (via --name flag or Rofi selection)
     let selected_figure = if let Some(explicit_name) = &shared.name {
         let name = if explicit_name.ends_with(".svg") {
             explicit_name.clone()
@@ -70,7 +68,6 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
 
     let name_only = figure_file.strip_suffix(".svg").unwrap_or(&figure_file);
 
-    // 3. Generate the LaTeX snippet using config template
     let caption = name_only
         .replace(['-', '_'], " ")
         .split_whitespace()
@@ -96,8 +93,6 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         .collect::<Vec<_>>()
         .join("\n");
 
-    // 4. Set up the isolated staging directory in /tmp
-    // Format: /tmp/lesson-manager/preview/<target-type>-<figure-name>/
     let target_type_str = match target {
         CopyTarget::Notes { .. } => "notes",
         CopyTarget::Thesis { .. } => "thesis",
@@ -118,19 +113,16 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         return;
     }
 
-// 5. Copy ONLY files matching the selected figure basename (e.g., figure-1.*)
     if let Err(e) = copy_matching_figure_files(&figures_path, &staging_figures_dir, name_only) {
         println!("Failed to copy figure assets to staging directory: {}", e);
         return;
     }
 
-    // 6. Locate and load the global preview template
     let template_path =
         shellexpand::tilde("~/.config/lesson-manager/figures/preview-template.tex").into_owned();
     let template_content = match fs::read_to_string(&template_path) {
         Ok(c) => c,
         Err(_) => {
-            // Fallback default template if file doesn't exist yet
             format!(
                 r#"\documentclass{{article}}
 \usepackage{{import}}
@@ -155,7 +147,6 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
         }
     };
 
-    // Replace placeholder with actual figure snippet
     let master_content = template_content.replace("{figure_snippet}", &figure_snippet);
     let staging_master_path = staging_dir.join("master.tex");
 
@@ -166,7 +157,6 @@ pub fn execute_preview(config: &LessonManagerConfigFile, target: &CopyTarget) {
 
     println!("Staged preview at: {}", staging_master_path.display());
 
-    // 7. Compile locally with pdflatex and open resulting PDF
     compile_and_open(&staging_master_path, &staging_dir, &config.pdf_viewer);
 }
 
@@ -191,7 +181,6 @@ fn copy_matching_figure_files(src_dir: &Path, dst_dir: &Path, base_name: &str) -
 fn compile_and_open(master_file: &Path, work_dir: &Path, pdf_viewer: &String) {
     println!("Compiling preview document with pdflatex...");
 
-    // Run pdflatex twice to ensure correct rendering/references
     for pass in 1..=2 {
         let status = Command::new("pdflatex")
             .arg("-interaction=nonstopmode")
