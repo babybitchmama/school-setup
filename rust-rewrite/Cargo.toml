@@ -16,3 +16,7 @@ yaml-rust = "0.4.5"
 prettytable-rs = "0.10"
 indexmap = { version = "2.14.0", features = ["serde"] }
 notify = "8.2"
+x11 = "2.21.0"
+rdev = { version = "0.5.3", features = ["unstable_grab"] }
+lazy_static = "1.5.0"
+x11rb = { version = "0.14.0", features = ["allow-unsafe-code"] }
