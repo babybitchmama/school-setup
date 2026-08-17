@@ -13,13 +13,14 @@ pub struct NoteTypeConfig {
     pub folder: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct LessonManagerConfigFile {
     pub calendar_id: Option<String>,
     pub drive_folder_id: Option<String>,
     pub onedrive_folder_id: Option<String>,
     pub editor: String,
     pub editor_mode: String,
+    pub inkscape_mode: String,
     pub terminal: String,
     pub pdf_viewer: String,
     pub highlight_current_course: bool,
@@ -52,6 +53,15 @@ pub struct LessonManagerConfigFile {
     pub create_readme_file: bool,
     pub folders: Vec<String>,
     pub files: HashMap<String, String>,
+}
+
+impl LessonManagerConfigFile {
+    pub fn load() -> Self {
+        let path = shellexpand::tilde("~/.config/lesson-manager/config.yaml").into_owned();
+        let contents = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("Failed to read config file {}: {}", path, e));
+        serde_yaml::from_str(&contents).expect("Failed to parse lesson-manager.yaml")
+    }
 }
 
 #[derive(Debug, Deserialize)]

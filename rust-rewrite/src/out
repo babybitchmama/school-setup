@@ -1,0 +1,47 @@
+.
+├── commands.rs
+├── config.rs
+├── core
+│   ├── assignments.rs
+│   ├── books.rs
+│   ├── calendar.rs
+│   ├── courses.rs
+│   ├── figures
+│   │   ├── copy.rs
+│   │   ├── create.rs
+│   │   ├── edit.rs
+│   │   ├── kill.rs
+│   │   ├── mod.rs
+│   │   ├── preview.rs
+│   │   ├── shortcuts
+│   │   │   ├── clipboard.rs
+│   │   │   ├── config.rs
+│   │   │   ├── constants.rs
+│   │   │   ├── manager.rs
+│   │   │   ├── mod.rs
+│   │   │   └── normal.rs
+│   │   └── watch.rs
+│   ├── mod.rs
+│   ├── notes.rs
+│   ├── rofi
+│   ├── sync.rs
+│   └── thesis
+│       ├── advisor.rs
+│       ├── compile.rs
+│       ├── mod.rs
+│       ├── notes.rs
+│       ├── papers.rs
+│       └── sync.rs
+├── dates.rs
+├── main.rs
+├── out
+├── parser.rs
+├── README.md
+├── rofi
+│   ├── input.rs
+│   ├── message.rs
+│   ├── mod.rs
+│   └── select.rs
+└── yaml.rs
+
+7 directories, 38 files

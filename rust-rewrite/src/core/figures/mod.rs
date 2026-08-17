@@ -1,10 +1,10 @@
 pub mod copy;
+pub mod kill;
 pub mod create;
 pub mod edit;
-pub mod kill;
 pub mod preview;
-pub mod shortcuts;
 pub mod watch;
+pub mod shortcuts;
 
 use crate::FigureCommands;
 use crate::config::LessonManagerConfigFile;
@@ -22,7 +22,7 @@ pub fn main(config: &LessonManagerConfigFile, command: &FigureCommands) {
         FigureCommands::Shortcuts => shortcuts::execute_shortcuts(),
         FigureCommands::Kill { daemon } => {
             let target = daemon.clone().unwrap_or_else(|| "both".to_string());
-            kill::execute_kill(&target);
+            println!("Kill command coming soon for: {}", target);
         }
     }
 }
@@ -37,7 +37,9 @@ pub fn resolve_course_path(config: &LessonManagerConfigFile, course_name: Option
 
     match course_name {
         Some(name) => PathBuf::from(root_expanded).join(name),
-        None => PathBuf::from(shellexpand::tilde(&config.current_course).to_string()),
+        None => {
+            PathBuf::from(shellexpand::tilde(&config.current_course).to_string())
+        }
     }
 }
 

@@ -30,6 +30,39 @@ struct Cli {
     #[command(subcommand)]
     command: commands::Commands,
 }
+// pub fn open_in_neovim(
+//     working_dir: &Path,
+//     files: &[PathBuf],
+//     terminal: &str,
+//     editor: &str,
+//     editor_mode: &String,
+// ) {
+//     let listen_location = "/tmp/nvim.pipe";
+//     let mut nvim_args = Vec::new();
+
+//     if Path::new(listen_location).exists() {
+//         nvim_args.push("--server");
+//         nvim_args.push(listen_location);
+//         nvim_args.push("--remote-tab");
+//     } else {
+//         nvim_args.push("--listen");
+//         nvim_args.push(listen_location);
+//     }
+
+//     let mut cmd = Command::new(terminal);
+//     cmd.arg(format!("--directory={}", working_dir.display()));
+//     cmd.arg(editor);
+//     cmd.args(nvim_args);
+
+//     for file in files {
+//         cmd.arg(file);
+//     }
+
+//     cmd.env("NVIM_MODE", editor_mode)
+//         .spawn()
+//         .expect("Failed to open terminal and editor");
+// }
+
 pub fn open_in_neovim(
     working_dir: &Path,
     files: &[PathBuf],
@@ -58,9 +91,11 @@ pub fn open_in_neovim(
         cmd.arg(file);
     }
 
-    cmd.env("NVIM_MODE", editor_mode)
-        .spawn()
-        .expect("Failed to open terminal and editor");
+    // Explicitly inherit the current environment (DISPLAY, DBUS, etc.) so Alacritty can talk to X11/Wayland
+    cmd.env("NVIM_MODE", editor_mode);
+    cmd.envs(std::env::vars()); // <-- This ensures DISPLAY=:0 and session bus vars are present
+
+    let _ = cmd.spawn().expect("Failed to open terminal and editor");
 }
 
 fn handle_rofi_command(
