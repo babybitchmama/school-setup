@@ -36,7 +36,7 @@ impl MathMacroManager {
         let dvi_path = self.figures_tmp_dir.join("master.dvi");
         let svg_path = self.figures_tmp_dir.join("master.svg");
 
-        fs::write(&input_file, "$$\n$$")?;
+        fs::write(&input_file, "$$")?;
 
         let mut child = Command::new(terminal)
             .arg(format!("--directory={}", self.figures_tmp_dir.display()))
@@ -66,12 +66,12 @@ impl MathMacroManager {
         let final_string = if !compile_to_svg {
             format!(
                 r#"<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape">
-  <text style="font-size:{}px; font-family:'{}';fill:#000000;fill-opacity:1;stroke:none;" xml:space="preserve">
-    <tspan sodipodi:role="line">{trimmed}</tspan>
-  </text>
-</svg>"#,
-                styles.text_config.font_size, styles.text_config.font
+            <svg>
+              <text
+                 style="font-size:{}px; font-family:'{}'; -inkscape-font-specification:'{}, Normal'; fill:#000000; fill-opacity:1; stroke:none;"
+                 xml:space="preserve"><tspan sodipodi:role="line">{trimmed}</tspan></text>
+            </svg>"#,
+                styles.text_config.font_size, styles.text_config.font, styles.text_config.font
             )
         } else {
             if self.template_path.exists() {
@@ -101,7 +101,7 @@ impl MathMacroManager {
                 fs::write(&master_file, fallback)?;
             }
 
-            let latex_status = Command::new("latex")
+            let latex_status = Command::new("pdflatex")
                 .arg("-interaction=nonstopmode")
                 .arg(format!(
                     "-output-directory={}",

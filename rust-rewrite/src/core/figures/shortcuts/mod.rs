@@ -1,6 +1,7 @@
 pub mod clipboard;
 pub mod config;
 pub mod constants;
+pub mod ergonomic;
 pub mod manager;
 pub mod math;
 pub mod normal;

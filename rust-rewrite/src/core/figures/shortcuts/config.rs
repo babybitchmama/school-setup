@@ -125,4 +125,17 @@ impl StylesConfig {
     pub fn find_action(&self, key: &str) -> Option<&Action> {
         self.actions.iter().find(|a| a.shortcut == key)
     }
+
+    /// Whether this key means something to us at all: a preset shortcut, a
+    /// modifier-chord letter, or an ergonomic action. Anything else gets
+    /// passed straight through to Inkscape untouched.
+    pub fn is_relevant_key(&self, ch: char) -> bool {
+        let s = ch.to_string();
+        self.find_preset(&s).is_some()
+        || self.modifiers.strokes.iter().any(|m| m.key == s)
+        || self.modifiers.arrows.iter().any(|m| m.key == s)
+        || self.modifiers.dashes.iter().any(|m| m.key == s)
+        || self.modifiers.fills.iter().any(|m| m.key == s)
+        || super::ergonomic::is_ergonomic_key(ch)
+    }
 }

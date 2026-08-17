@@ -18,3 +18,6 @@ pub const CONTROL_MASK: u16 = 1 << 2;
 pub const CLIPBOARD_TARGET: &str = "image/x-inkscape-svg";
 
 pub const PID_FILE: &str = "/tmp/lesson-manager/shortcuts.pid";
+
+/// Keysym for the Delete key (used for the Shift+Z -> Delete translation).
+pub const XK_DELETE: u32 = 0xffff;
