@@ -42,6 +42,14 @@ pub struct Modifiers {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct ItemBinding {
+    pub key: String,
+    pub item: String,
+    #[serde(default)]
+    pub modifiers: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct TextConfig {
     #[serde(default = "default_font")]
     pub font: String,
@@ -77,6 +85,8 @@ pub struct StylesConfig {
     pub modifiers: Modifiers,
     #[serde(default)]
     pub text_config: TextConfig,
+    #[serde(default)]
+    pub items: Vec<ItemBinding>,
 }
 
 impl StylesConfig {
@@ -94,6 +104,12 @@ impl StylesConfig {
     /// `modifiers` sections only combine into a style when 2+ keys are held
     /// at once. Since both sections can reuse the same letter for different
     /// meanings, warn loudly so any collision is a deliberate choice.
+    ///
+    /// This doesn't check `items` bindings for collisions yet -- e.g. your
+    /// current styles.yaml binds 'b' both as the "blue-stroke" preset and
+    /// as the "snap" item. Manager resolves that by checking actions, then
+    /// items, then presets, in that order (items win over presets on a
+    /// single keypress) -- worth knowing about, not fixed automatically.
     fn warn_about_collisions(&self) {
         let mut modifier_keys: HashMap<&str, &str> = HashMap::new();
         for (group_name, group) in [
@@ -123,19 +139,8 @@ impl StylesConfig {
     }
 
     pub fn find_action(&self, key: &str) -> Option<&Action> {
-        self.actions.iter().find(|a| a.shortcut == key)
-    }
-
-    /// Whether this key means something to us at all: a preset shortcut, a
-    /// modifier-chord letter, or an ergonomic action. Anything else gets
-    /// passed straight through to Inkscape untouched.
-    pub fn is_relevant_key(&self, ch: char) -> bool {
-        let s = ch.to_string();
-        self.find_preset(&s).is_some()
-        || self.modifiers.strokes.iter().any(|m| m.key == s)
-        || self.modifiers.arrows.iter().any(|m| m.key == s)
-        || self.modifiers.dashes.iter().any(|m| m.key == s)
-        || self.modifiers.fills.iter().any(|m| m.key == s)
-        || super::ergonomic::is_ergonomic_key(ch)
+        self.actions
+            .iter()
+            .find(|a| a.shortcut.to_lowercase() == key)
     }
 }

@@ -16,7 +16,7 @@ use core::books;
 use core::courses;
 use core::notes;
 
-use commands::{Commands, RofiCommands, NoteActions, ThesisCommands, CreateTarget, FigureCommands};
+use commands::{Commands, RofiCommands, NoteActions, ThesisCommands, FigureCommands};
 
 // use core::sync;
 
@@ -93,9 +93,9 @@ pub fn open_in_neovim(
 
     // Explicitly inherit the current environment (DISPLAY, DBUS, etc.) so Alacritty can talk to X11/Wayland
     cmd.env("NVIM_MODE", editor_mode);
-    cmd.envs(std::env::vars()); // <-- This ensures DISPLAY=:0 and session bus vars are present
+    cmd.envs(std::env::vars());
 
-    let _ = cmd.spawn().expect("Failed to open terminal and editor");
+    let _ = cmd.spawn().expect("Failed to open terminal and editor").wait();
 }
 
 fn handle_rofi_command(

@@ -14,7 +14,7 @@ pub fn execute_kill(daemon: &str) {
     let pid_str = match fs::read_to_string(&pid_file) {
         Ok(content) => content.trim().to_string(),
         Err(_) => {
-            println!("❌ Failed to read watch.pid");
+            println!("Failed to read watch.pid");
             return;
         }
     };

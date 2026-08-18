@@ -8,6 +8,7 @@ pub mod normal;
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 
 use x11rb::connection::Connection;
@@ -22,8 +23,8 @@ use constants::PID_FILE;
 use manager::Manager;
 
 pub fn execute_shortcuts() {
-    let styles = StylesConfig::load();
-    let app_config = LessonManagerConfigFile::load();
+    let styles = Arc::new(StylesConfig::load());
+    let app_config = Arc::new(LessonManagerConfigFile::load());
 
     daemonize();
 
@@ -58,7 +59,11 @@ fn is_inkscape(conn: &impl Connection, window: Window) -> bool {
         .any(|part| part.to_lowercase().contains("inkscape"))
 }
 
-fn spawn_manager(window: Window, styles: StylesConfig, app_config: LessonManagerConfigFile) {
+fn spawn_manager(
+    window: Window,
+    styles: Arc<StylesConfig>,
+    app_config: Arc<LessonManagerConfigFile>,
+) {
     thread::spawn(move || match Manager::new(window, app_config) {
         Ok(manager) => {
             println!("Watching Inkscape window {}", window);
@@ -71,8 +76,8 @@ fn spawn_manager(window: Window, styles: StylesConfig, app_config: LessonManager
 }
 
 fn watch_for_inkscape_windows(
-    styles: StylesConfig,
-    app_config: LessonManagerConfigFile,
+    styles: Arc<StylesConfig>,
+    app_config: Arc<LessonManagerConfigFile>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (conn, screen_num) = x11rb::connect(None)?;
     let root = conn.setup().roots[screen_num].root;
@@ -81,7 +86,7 @@ fn watch_for_inkscape_windows(
     for child in tree.children {
         if is_inkscape(&conn, child) {
             println!("Found existing Inkscape window");
-            spawn_manager(child, styles.clone(), app_config.clone());
+            spawn_manager(child, Arc::clone(&styles), Arc::clone(&app_config));
         }
     }
 
@@ -96,7 +101,7 @@ fn watch_for_inkscape_windows(
         if let Event::CreateNotify(ev) = event {
             if is_inkscape(&conn, ev.window) {
                 println!("New Inkscape window detected");
-                spawn_manager(ev.window, styles.clone(), app_config.clone());
+                spawn_manager(ev.window, Arc::clone(&styles), Arc::clone(&app_config));
             }
         }
     }

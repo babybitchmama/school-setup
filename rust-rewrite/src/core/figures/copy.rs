@@ -99,7 +99,7 @@ pub fn copy_template_to_clipboard(figure_template: &Vec<String>, file_name: &str
             let _ = stdin.write_all(final_string.as_bytes());
         }
         let _ = child.wait();
-        println!("📋 Copied to clipboard:\n{}", final_string);
+        println!("Copied to clipboard:\n{}", final_string);
     } else {
         println!("Failed to execute xclip.");
     }

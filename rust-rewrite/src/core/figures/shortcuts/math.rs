@@ -1,3 +1,5 @@
+use crate::open_in_neovim;
+
 use super::config::StylesConfig;
 use std::fs;
 use std::io::Write;
@@ -38,17 +40,14 @@ impl MathMacroManager {
 
         fs::write(&input_file, "$$")?;
 
-        let mut child = Command::new(terminal)
-            .arg(format!("--directory={}", self.figures_tmp_dir.display()))
-            .arg(editor)
-            .arg("--listen")
-            .arg("/tmp/nvim.pipe")
-            .arg(&input_file)
-            .env("NVIM_MODE", editor_mode)
-            .envs(std::env::vars())
-            .spawn()?;
-
-        let _ = child.wait()?;
+        let file = std::slice::from_ref(&input_file);
+        open_in_neovim(
+            self.figures_tmp_dir.as_path(),
+            file,
+            terminal,
+            editor,
+            editor_mode,
+        );
 
         let raw_content = fs::read_to_string(&input_file)?;
         let cleaned_lines: Vec<&str> = raw_content
@@ -103,6 +102,7 @@ impl MathMacroManager {
 
             let latex_status = Command::new("pdflatex")
                 .arg("-interaction=nonstopmode")
+                .arg("--output-format=dvi")
                 .arg(format!(
                     "-output-directory={}",
                     self.figures_tmp_dir.display()
@@ -140,7 +140,7 @@ impl MathMacroManager {
                 let _ = stdin.write_all(final_string.as_bytes());
             }
             let _ = xclip_child.wait();
-            println!("📋 Copied math macro to clipboard:\n{}", final_string);
+            println!("Copied math macro to clipboard:\n{}", final_string);
         } else {
             println!("Failed to execute xclip.");
         }
