@@ -7,6 +7,11 @@ pub struct Settings {
     pub default_stroke_width: f64,
     pub thick_width: f64,
     pub very_thick_width: f64,
+    /// Where named custom styles (saved from an actual Inkscape selection
+    /// via the "save-style" action) are persisted. Unlike `presets`, this
+    /// file is written to at runtime, so it lives separately from
+    /// styles.yaml rather than requiring hand-editing.
+    pub custom_styles_path: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -49,6 +54,23 @@ pub struct ItemBinding {
     pub modifiers: Vec<String>,
 }
 
+/// A single key that expands to a whole set of modifier keys, as if they
+/// were all held simultaneously. Unlike `Preset` (a fixed attribute map
+/// snapshot), a combo is resolved through the exact same procedural
+/// computation as a real chord -- so it stays correct if `settings` (pt
+/// multiplier, stroke widths, ...) ever changes, instead of drifting out
+/// of sync with a hand-written attribute map.
+///
+/// Expansion is one level deep only: a combo's `keys` must name actual
+/// stroke/dash/arrow/fill modifier keys, not other combos.
+#[derive(Debug, Deserialize, Clone)]
+pub struct Combo {
+    pub key: String,
+    pub keys: Vec<String>,
+    #[serde(default)]
+    pub description: String,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct TextConfig {
     #[serde(default = "default_font")]
@@ -87,6 +109,8 @@ pub struct StylesConfig {
     pub text_config: TextConfig,
     #[serde(default)]
     pub items: Vec<ItemBinding>,
+    #[serde(default)]
+    pub combos: Vec<Combo>,
 }
 
 impl StylesConfig {
@@ -100,10 +124,12 @@ impl StylesConfig {
         styles
     }
 
-    /// A single keypress is looked up against `presets` first; the
-    /// `modifiers` sections only combine into a style when 2+ keys are held
-    /// at once. Since both sections can reuse the same letter for different
-    /// meanings, warn loudly so any collision is a deliberate choice.
+    /// A single keypress is looked up against `presets` first, then
+    /// `combos`; the `modifiers` sections only combine into a style when
+    /// 2+ keys are held at once (or one of those keys is a combo that
+    /// expands to several). Since these sections can reuse the same
+    /// letter for different meanings, warn loudly so any collision is a
+    /// deliberate choice.
     ///
     /// This doesn't check `items` bindings for collisions yet -- e.g. your
     /// current styles.yaml binds 'b' both as the "blue-stroke" preset and
@@ -132,6 +158,33 @@ impl StylesConfig {
                 );
             }
         }
+        for combo in &self.combos {
+            if let Some(group_name) = modifier_keys.get(combo.key.as_str()) {
+                println!(
+                    "Warning: styles.yaml combo '{}' uses key '{}', which is also a \
+                     modifier key in '{}'. On a single keypress the combo wins, so '{}' \
+                     alone can no longer be used for its plain modifier meaning.",
+                    combo.key, combo.key, group_name, combo.key
+                );
+            }
+            if self.presets.iter().any(|p| p.shortcut == combo.key) {
+                println!(
+                    "Warning: styles.yaml combo '{}' uses the same key as a preset. \
+                     The preset wins on a single keypress.",
+                    combo.key
+                );
+            }
+            for k in &combo.keys {
+                if !modifier_keys.contains_key(k.as_str()) {
+                    println!(
+                        "Warning: styles.yaml combo '{}' references '{}', which isn't a \
+                         stroke/dash/arrow/fill modifier key. It will be ignored when the \
+                         combo is expanded.",
+                        combo.key, k
+                    );
+                }
+            }
+        }
     }
 
     pub fn find_preset(&self, key: &str) -> Option<&Preset> {
@@ -142,5 +195,9 @@ impl StylesConfig {
         self.actions
             .iter()
             .find(|a| a.shortcut.to_lowercase() == key)
+    }
+
+    pub fn find_combo(&self, key: &str) -> Option<&Combo> {
+        self.combos.iter().find(|c| c.key == key)
     }
 }

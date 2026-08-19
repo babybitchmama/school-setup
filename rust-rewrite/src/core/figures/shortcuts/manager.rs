@@ -284,7 +284,7 @@ impl Manager {
                             "Inkscape shortcuts {}",
                             if active { "enabled" } else { "disabled" }
                         );
-                    } else if !active {
+                    } else if !active || control_held {
                         // Shortcuts are off: don't resolve anything else,
                         // just relay what was held.
                         self.passthrough(&pressed_raw);
