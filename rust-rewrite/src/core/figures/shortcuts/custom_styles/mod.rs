@@ -24,13 +24,9 @@ pub fn styles_dir() -> PathBuf {
     PathBuf::from(shellexpand::tilde("~/.config/lesson-manager/figures/styles").into_owned())
 }
 
-pub fn objects_dir() -> PathBuf {
-    PathBuf::from(shellexpand::tilde("~/.config/lesson-manager/figures/objects").into_owned())
-}
-
 pub fn ensure_dirs() {
     let _ = fs::create_dir_all(styles_dir());
-    let _ = fs::create_dir_all(objects_dir());
+    super::custom_objects::ensure_dir();
 }
 
 pub fn style_path(name: &str) -> PathBuf {

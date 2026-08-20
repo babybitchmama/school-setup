@@ -25,3 +25,10 @@ pub const XK_DELETE: u32 = 0xffff;
 /// Keysym for the Escape key -- used to cancel out of the
 /// `apply-custom-style` typed-name mode mid-buffer.
 pub const XK_ESCAPE: u32 = 0xff1b;
+
+/// WM_CLASS applied to Inkscape windows opened via `edit-style`, so a WM
+/// rule (e.g. a bspwm float rule) can target them without affecting the
+/// main watched Inkscape window.
+pub const CUSTOM_STYLE_WM_CLASS: &str = "float-center";
+/// Same as `CUSTOM_STYLE_WM_CLASS`, for `edit-custom-object`.
+pub const CUSTOM_OBJECT_WM_CLASS: &str = "float-center";

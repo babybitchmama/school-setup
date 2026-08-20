@@ -1,22 +1,130 @@
 use std::sync::Arc;
 
 use crate::config::LessonManagerConfigFile;
-use std::path::PathBuf;
+use crate::core::figures::shortcuts::custom_objects::object_path;
+use clap::Command;
+use std::path::{Path, PathBuf};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{
-    self, Allow, ChangeWindowAttributesAux, ConnectionExt as _, EventMask, GrabMode, KeyPressEvent,
-    KeyReleaseEvent, ModMask, Window,
+    self, Allow, AtomEnum, ChangeWindowAttributesAux, ConnectionExt as _, EventMask, GrabMode,
+    KeyPressEvent, KeyReleaseEvent, ModMask, Window,
 };
 use x11rb::rust_connection::RustConnection;
+use x11rb::wrapper::ConnectionExt;
 
 use super::clipboard;
 use super::config::StylesConfig;
 use super::constants::{CONTROL_MASK, SHIFT_MASK, XK_ALT_L, XK_DELETE, XK_SUPER_L};
 use super::ergonomic::Bindings;
 use super::normal;
+
+/// Spawns `inkscape <path>`, waits for its window to appear and relabels
+/// it with `class_name`, then blocks until the user closes it -- same
+/// blocking contract the old `action_edit_style` had via `.status()`.
+/// If relabeling fails for any reason, Inkscape still opens normally with
+/// its default class; a missing WM rule match is far less disruptive than
+/// the whole edit flow silently doing nothing.
+fn open_floating_inkscape(path: &Path) {
+    // 1. Tell bspwm to make the next incoming Inkscape window float.
+    let _ = std::process::Command::new("bspc")
+        .args(["rule", "-a", "Inkscape", "-o", "state=floating"])
+        .output();
+
+    // 2. Explicitly use std::process::Command to spawn Inkscape
+    let mut child = match std::process::Command::new("inkscape")
+        .arg("--with-gui")
+        .arg(path)
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            println!("Failed to launch Inkscape: {}", e);
+            return;
+        }
+    };
+
+    let _ = child.wait();
+}
+
+/// Opens its own short-lived X11 connection, watches the root window for
+/// CreateNotify events, and matches the new window to `target_pid` via
+/// `_NET_WM_PID` -- more precise than matching on WM_CLASS content (as
+/// the daemon's own Inkscape-window watcher does), since we're about to
+/// change that property anyway and don't want to race a second Inkscape
+/// window someone might have open. Gives up after 10s.
+fn relabel_next_inkscape_window(
+    target_pid: u32,
+    class_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (conn, screen_num) = x11rb::connect(None)?;
+    let root = conn.setup().roots[screen_num].root;
+
+    conn.change_window_attributes(
+        root,
+        &ChangeWindowAttributesAux::new().event_mask(EventMask::SUBSTRUCTURE_NOTIFY),
+    )?
+    .check()?;
+
+    let net_wm_pid = conn.intern_atom(false, b"_NET_WM_PID")?.reply()?.atom;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut candidates: Vec<Window> = Vec::new();
+
+    while Instant::now() < deadline {
+        if let Some(Event::CreateNotify(ev)) = conn.poll_for_event()? {
+            candidates.push(ev.window);
+        }
+
+        // _NET_WM_PID may not be set the instant CreateNotify fires, so we
+        // keep re-checking every candidate window each pass rather than
+        // only checking it once.
+        if let Some(pos) = candidates
+            .iter()
+            .position(|&w| get_window_pid(&conn, w, net_wm_pid) == Some(target_pid))
+        {
+            set_wm_class(&conn, candidates[pos], class_name)?;
+            conn.flush()?;
+            return Ok(());
+        }
+
+        thread::sleep(Duration::from_millis(20));
+    }
+
+    Err("timed out waiting for the new Inkscape window to appear".into())
+}
+
+fn get_window_pid(conn: &impl Connection, window: Window, net_wm_pid: xproto::Atom) -> Option<u32> {
+    let cookie = conn
+        .get_property(false, window, net_wm_pid, AtomEnum::CARDINAL, 0, 1)
+        .ok()?;
+    cookie.reply().ok()?.value32()?.next()
+}
+
+fn set_wm_class(
+    conn: &impl Connection,
+    window: Window,
+    class_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // WM_CLASS is two null-terminated strings back to back: instance, then
+    // class. Setting both to the same value mirrors how kitty's --class
+    // behaves, so a WM rule can match on either.
+    let mut value = class_name.as_bytes().to_vec();
+    value.push(0);
+    value.extend_from_slice(class_name.as_bytes());
+    value.push(0);
+
+    conn.change_property8(
+        xproto::PropMode::REPLACE,
+        window,
+        AtomEnum::WM_CLASS,
+        AtomEnum::STRING,
+        &value,
+    )?
+    .check()?;
+    Ok(())
+}
 
 /// Owns one X11 connection dedicated to a single Inkscape window. Mirrors
 /// Castel's `Manager` class in `main.py`: each watched window gets its own
@@ -191,7 +299,7 @@ impl Manager {
         }
     }
 
-    fn action_save_style(&self) {
+    fn action_create_custom_style(&self) {
         let Some(raw_name) =
             crate::rofi::input::prompt_input("New Style Name", &self.config.rofi_options)
         else {
@@ -200,6 +308,17 @@ impl Manager {
         let name = raw_name.trim().to_lowercase().replace(' ', "-");
         if name.is_empty() {
             return;
+        }
+
+        if super::custom_styles::style_path(&name).exists() {
+            let confirm = crate::rofi::select::select_from_rofi(
+                vec!["y".to_string(), "n".to_string()],
+                &self.config.rofi_options,
+                format!("'{}' exists -- merge new shape(s) into it?", name),
+            );
+            if confirm.as_deref() != Some("y") {
+                return;
+            }
         }
 
         let mode = crate::rofi::select::select_from_rofi(
@@ -221,7 +340,7 @@ impl Manager {
 
                 match super::clipboard::get() {
                     Ok(content) if !content.trim().is_empty() => {
-                        match super::custom_styles::save::save_from_clipboard_svg(&name, &content) {
+                        match super::custom_styles::save::merge_into_style(&name, &content) {
                             Ok(path) => println!("Saved style '{}' to {}", name, path.display()),
                             Err(e) => println!("Failed to save style: {}", e),
                         }
@@ -260,7 +379,7 @@ impl Manager {
         }
     }
 
-    fn action_edit_style(&self) {
+    fn action_edit_custom_style(&self) {
         let names = super::custom_styles::list_style_names();
         if names.is_empty() {
             println!(
@@ -493,6 +612,92 @@ impl Manager {
         }
     }
 
+    fn action_apply_custom_object(&self) {
+        let names = super::custom_objects::list_object_names();
+        if names.is_empty() {
+            println!(
+                "No custom objects found in {}",
+                super::custom_objects::objects_dir().display()
+            );
+            return;
+        }
+
+        let Some(object_name) = crate::rofi::select::select_from_rofi(
+            names,
+            &self.config.rofi_options,
+            "Paste Object".to_string(),
+        ) else {
+            return;
+        };
+
+        let svg_content = match super::custom_objects::read_object_svg(&object_name) {
+            Ok(content) => content,
+            Err(e) => {
+                println!("Failed to read object '{}': {}", object_name, e);
+                return;
+            }
+        };
+
+        if let Err(e) = super::clipboard::copy(&svg_content) {
+            println!(
+                "Failed to copy object '{}' to clipboard: {}",
+                object_name, e
+            );
+            return;
+        }
+
+        if let Err(e) = self.press('v' as u32, CONTROL_MASK) {
+            println!("Failed to paste object '{}': {}", object_name, e);
+        }
+    }
+
+    fn action_create_custom_object(&self) {
+        let names = super::custom_styles::list_style_names();
+        if names.is_empty() {
+            println!(
+                "No custom styles found in {}",
+                super::custom_styles::styles_dir().display()
+            );
+            return;
+        }
+
+        let Some(style_name) = crate::rofi::select::select_from_rofi(
+            names,
+            &self.config.rofi_options,
+            "Edit Style".to_string(),
+        ) else {
+            return;
+        };
+
+        let path = super::custom_styles::style_path(&style_name);
+        open_floating_inkscape(&path);
+        // No live re-parse on save yet -- apply/list just read the file fresh
+        // from disk each time, so the edit takes effect the next time you
+        // press the apply-style key.
+    }
+
+    fn action_edit_custom_object(&self) {
+        let names = super::custom_objects::list_object_names();
+        if names.is_empty() {
+            println!(
+                "No custom objects found in {}",
+                super::custom_objects::objects_dir().display()
+            );
+            return;
+        }
+
+        let Some(object_name) = crate::rofi::select::select_from_rofi(
+            names,
+            &self.config.rofi_options,
+            "Edit Object".to_string(),
+        ) else {
+            return;
+        };
+
+        let path = super::custom_objects::object_path(&object_name);
+        open_floating_inkscape(&path);
+    }
+
     fn run_action(&self, action: &super::config::Action, styles: &StylesConfig) {
         match action.name.as_str() {
             "neovim-latex-code" => {
@@ -547,11 +752,20 @@ impl Manager {
             "apply-custom-style" => {
                 self.action_apply_custom_style();
             }
-            "save-style" => {
-                self.action_save_style();
+            "create-custom-style" => {
+                self.action_create_custom_style();
             }
-            "edit-style" => {
-                self.action_edit_style();
+            "edit-custom-style" => {
+                self.action_edit_custom_style();
+            }
+            "apply-custom-object" => {
+                self.action_apply_custom_object();
+            }
+            "create-custom-object" => {
+                self.action_create_custom_object();
+            }
+            "edit-custom-object" => {
+                self.action_edit_custom_object();
             }
             "undo" => {
                 // Our grabbed trigger is a bare 'z' (see styles.yaml), but
