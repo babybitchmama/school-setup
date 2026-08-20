@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use crate::config::LessonManagerConfigFile;
+use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{
@@ -7,8 +11,6 @@ use x11rb::protocol::xproto::{
     KeyReleaseEvent, ModMask, Window,
 };
 use x11rb::rust_connection::RustConnection;
-
-use crate::config::LessonManagerConfigFile;
 
 use super::clipboard;
 use super::config::StylesConfig;
@@ -138,6 +140,155 @@ impl Manager {
         xproto::ungrab_key(&self.conn, 0, self.window, ModMask::ANY)?.check()?;
         self.conn.flush()?;
         Ok(())
+    }
+
+    fn action_apply_custom_style(&self) {
+        let names = super::custom_styles::list_style_names();
+        if names.is_empty() {
+            println!(
+                "No custom styles found in {}",
+                super::custom_styles::styles_dir().display()
+            );
+            return;
+        }
+
+        let Some(style_name) = crate::rofi::select::select_from_rofi(
+            names,
+            &self.config.rofi_options,
+            "Apply Style".to_string(),
+        ) else {
+            return;
+        };
+
+        // Grab the current selection's real markup via a genuine copy, so
+        // we can tell what type of object is selected. The sleep gives the
+        // X clipboard a moment to actually update before we read it back.
+        if let Err(e) = self.press('c' as u32, CONTROL_MASK) {
+            println!("Failed to copy selection for style lookup: {}", e);
+            return;
+        }
+        thread::sleep(Duration::from_millis(150));
+
+        let copied = match super::clipboard::get() {
+            Ok(content) => content,
+            Err(e) => {
+                println!("Failed to read clipboard: {}", e);
+                return;
+            }
+        };
+
+        match super::custom_styles::apply::resolve_style_svg(&style_name, &copied) {
+            Ok(style_svg) => {
+                if let Err(e) = super::clipboard::copy(&style_svg) {
+                    println!("Failed to copy resolved style to clipboard: {}", e);
+                    return;
+                }
+                if let Err(e) = self.press('v' as u32, CONTROL_MASK | SHIFT_MASK) {
+                    println!("Failed to paste style: {}", e);
+                }
+            }
+            Err(msg) => println!("Cannot apply style '{}': {}", style_name, msg),
+        }
+    }
+
+    fn action_save_style(&self) {
+        let Some(raw_name) =
+            crate::rofi::input::prompt_input("New Style Name", &self.config.rofi_options)
+        else {
+            return;
+        };
+        let name = raw_name.trim().to_lowercase().replace(' ', "-");
+        if name.is_empty() {
+            return;
+        }
+
+        let mode = crate::rofi::select::select_from_rofi(
+            vec![
+                "From current selection".to_string(),
+                "Start blank in Inkscape".to_string(),
+            ],
+            &self.config.rofi_options,
+            "Save Style".to_string(),
+        );
+
+        match mode.as_deref() {
+            Some("From current selection") => {
+                if let Err(e) = self.press('c' as u32, CONTROL_MASK) {
+                    println!("Failed to copy selection: {}", e);
+                    return;
+                }
+                thread::sleep(Duration::from_millis(150));
+
+                match super::clipboard::get() {
+                    Ok(content) if !content.trim().is_empty() => {
+                        match super::custom_styles::save::save_from_clipboard_svg(&name, &content) {
+                            Ok(path) => println!("Saved style '{}' to {}", name, path.display()),
+                            Err(e) => println!("Failed to save style: {}", e),
+                        }
+                    }
+                    Ok(_) => println!("Nothing was selected to copy."),
+                    Err(e) => println!("Failed to read clipboard: {}", e),
+                }
+            }
+            Some("Start blank in Inkscape") => {
+                let scratch_path =
+                    PathBuf::from(format!("/tmp/lesson-manager/styles/{}.svg", name));
+
+                if let Err(e) = super::custom_styles::save::create_blank_scratch_svg(&scratch_path)
+                {
+                    println!("Failed to create scratch file: {}", e);
+                    return;
+                }
+
+                match std::process::Command::new("inkscape")
+                    .arg(&scratch_path)
+                    .status()
+                {
+                    Ok(_) => {
+                        match super::custom_styles::save::promote_scratch_to_style(
+                            &name,
+                            &scratch_path,
+                        ) {
+                            Ok(path) => println!("Saved style '{}' to {}", name, path.display()),
+                            Err(e) => println!("Failed to save style: {}", e),
+                        }
+                    }
+                    Err(e) => println!("Failed to launch Inkscape: {}", e),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn action_edit_style(&self) {
+        let names = super::custom_styles::list_style_names();
+        if names.is_empty() {
+            println!(
+                "No custom styles found in {}",
+                super::custom_styles::styles_dir().display()
+            );
+            return;
+        }
+
+        let Some(style_name) = crate::rofi::select::select_from_rofi(
+            names,
+            &self.config.rofi_options,
+            "Edit Style".to_string(),
+        ) else {
+            return;
+        };
+
+        let path = super::custom_styles::style_path(&style_name);
+
+        if let Err(e) = std::process::Command::new("inkscape").arg(&path).status() {
+            println!(
+                "Failed to launch Inkscape for style '{}': {}",
+                style_name, e
+            );
+        }
+        // No live re-parse on save yet, per your #5 -- apply/list just
+        // read the file fresh from disk each time, so the edit takes
+        // effect the next time you press `n`.
     }
 
     /// Synthesizes a KeyPress+KeyRelease pair sent directly to the Inkscape
@@ -392,6 +543,15 @@ impl Manager {
                     }
                     Err(e) => println!("Math macro error: {}", e),
                 }
+            }
+            "apply-custom-style" => {
+                self.action_apply_custom_style();
+            }
+            "save-style" => {
+                self.action_save_style();
+            }
+            "edit-style" => {
+                self.action_edit_style();
             }
             "undo" => {
                 // Our grabbed trigger is a bare 'z' (see styles.yaml), but

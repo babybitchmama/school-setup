@@ -6,6 +6,7 @@ pub mod manager;
 pub mod math;
 pub mod normal;
 pub mod store;
+pub mod custom_styles;
 
 use std::fs;
 use std::path::PathBuf;
