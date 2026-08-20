@@ -113,6 +113,12 @@ pub struct StylesConfig {
     pub items: Vec<ItemBinding>,
     #[serde(default)]
     pub combos: Vec<Combo>,
+    /// Fixed key -> saved-style-name shortcuts (e.g. `1: "style-01"`), for
+    /// instantly applying a frequently-used custom style without going
+    /// through the typed-name `apply-custom-style` flow. Looked up against
+    /// the store loaded from `settings.custom_styles_path`.
+    #[serde(default, rename = "custom-styles")]
+    pub custom_styles: HashMap<String, String>,
 }
 
 impl StylesConfig {
@@ -157,6 +163,30 @@ impl StylesConfig {
                      a modifier key in '{}'. On a single keypress the preset wins; the \
                      modifier meaning is only reachable inside a multi-key chord.",
                     preset.name, preset.shortcut, group_name
+                );
+            }
+        }
+        for action in &self.actions {
+            if self.combos.iter().any(|c| c.key == action.shortcut) {
+                println!(
+                    "Warning: styles.yaml action '{}' uses the same key '{}' as a combo. \
+                     Actions are checked first, so the action always wins on a single \
+                     keypress -- the combo becomes unreachable.",
+                    action.name, action.shortcut
+                );
+            }
+        }
+        for (key, name) in &self.custom_styles {
+            let collides = self.actions.iter().any(|a| a.shortcut == *key)
+                || self.items.iter().any(|i| i.key == *key)
+                || self.presets.iter().any(|p| p.shortcut == *key)
+                || modifier_keys.contains_key(key.as_str());
+            if collides {
+                println!(
+                    "Warning: styles.yaml custom-styles entry '{}' -> '{}' shares its key \
+                     with another binding. Custom-style shortcuts are resolved after \
+                     actions and items, so the other binding wins on a single keypress.",
+                    key, name
                 );
             }
         }

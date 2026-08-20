@@ -21,3 +21,7 @@ pub const PID_FILE: &str = "/tmp/lesson-manager/shortcuts.pid";
 
 /// Keysym for the Delete key (used for the Shift+Z -> Delete translation).
 pub const XK_DELETE: u32 = 0xffff;
+
+/// Keysym for the Escape key -- used to cancel out of the
+/// `apply-custom-style` typed-name mode mid-buffer.
+pub const XK_ESCAPE: u32 = 0xff1b;

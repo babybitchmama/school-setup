@@ -5,6 +5,7 @@ pub mod ergonomic;
 pub mod manager;
 pub mod math;
 pub mod normal;
+pub mod store;
 
 use std::fs;
 use std::path::PathBuf;
