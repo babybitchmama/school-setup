@@ -1,12 +1,13 @@
 pub mod clipboard;
 pub mod config;
 pub mod constants;
+pub mod custom_objects;
+pub mod custom_styles;
 pub mod ergonomic;
 pub mod manager;
 pub mod math;
 pub mod normal;
 pub mod store;
-pub mod custom_styles;
 
 use std::fs;
 use std::path::PathBuf;
