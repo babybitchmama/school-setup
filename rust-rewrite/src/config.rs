@@ -21,13 +21,11 @@ pub struct LessonManagerConfigFile {
     pub editor: String,
     pub editor_mode: String,
     pub inkscape_mode: String,
+    pub terminal_class_name: String,
     pub terminal: String,
     pub pdf_viewer: String,
-    pub highlight_current_course: bool,
 
     pub date_format: String,
-    pub home: String,
-    pub user: String,
     pub rofi_options: Vec<String>,
 
     pub notes_dir: String,
@@ -50,7 +48,6 @@ pub struct LessonManagerConfigFile {
     pub figures_dir: String,
     pub figure_template: Vec<String>,
 
-    pub create_readme_file: bool,
     pub folders: Vec<String>,
     pub files: HashMap<String, String>,
 }

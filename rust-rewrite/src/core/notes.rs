@@ -80,6 +80,7 @@ impl Note {
             "kitty",
             editor,
             editor_mode,
+            None,
         );
     }
 

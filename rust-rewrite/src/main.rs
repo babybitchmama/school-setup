@@ -30,38 +30,6 @@ struct Cli {
     #[command(subcommand)]
     command: commands::Commands,
 }
-// pub fn open_in_neovim(
-//     working_dir: &Path,
-//     files: &[PathBuf],
-//     terminal: &str,
-//     editor: &str,
-//     editor_mode: &String,
-// ) {
-//     let listen_location = "/tmp/nvim.pipe";
-//     let mut nvim_args = Vec::new();
-
-//     if Path::new(listen_location).exists() {
-//         nvim_args.push("--server");
-//         nvim_args.push(listen_location);
-//         nvim_args.push("--remote-tab");
-//     } else {
-//         nvim_args.push("--listen");
-//         nvim_args.push(listen_location);
-//     }
-
-//     let mut cmd = Command::new(terminal);
-//     cmd.arg(format!("--directory={}", working_dir.display()));
-//     cmd.arg(editor);
-//     cmd.args(nvim_args);
-
-//     for file in files {
-//         cmd.arg(file);
-//     }
-
-//     cmd.env("NVIM_MODE", editor_mode)
-//         .spawn()
-//         .expect("Failed to open terminal and editor");
-// }
 
 pub fn open_in_neovim(
     working_dir: &Path,
@@ -69,6 +37,7 @@ pub fn open_in_neovim(
     terminal: &str,
     editor: &str,
     editor_mode: &String,
+    terminal_class_name: Option<&String>,
 ) {
     let listen_location = "/tmp/nvim.pipe";
     let mut nvim_args = Vec::new();
@@ -83,6 +52,11 @@ pub fn open_in_neovim(
     }
 
     let mut cmd = Command::new(terminal);
+
+    if let Some(class) = terminal_class_name {
+        cmd.arg("--class").arg(class);
+    }
+
     cmd.arg(format!("--directory={}", working_dir.display()));
     cmd.arg(editor);
     cmd.args(nvim_args);

@@ -12,6 +12,8 @@ pub struct Settings {
     /// file is written to at runtime, so it lives separately from
     /// styles.yaml rather than requiring hand-editing.
     pub custom_styles_path: String,
+    #[serde(default)]
+    pub terminal_class_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -352,7 +352,14 @@ impl Manager {
                 let editor = &self.config.editor;
                 let inkscape_mode = &self.config.inkscape_mode;
 
-                match math_mgr.edit_and_compile(false, terminal, editor, inkscape_mode, styles) {
+                match math_mgr.edit_and_compile(
+                    false,
+                    terminal,
+                    editor,
+                    inkscape_mode,
+                    styles,
+                    Some(self.config.terminal_class_name.clone()),
+                ) {
                     Ok(_svg) => {
                         if let Err(e) = self.press('v' as u32, CONTROL_MASK) {
                             println!("Failed to send paste event to Inkscape window: {}", e);
@@ -369,7 +376,14 @@ impl Manager {
                 let editor = &self.config.editor;
                 let inkscape_mode = &self.config.inkscape_mode;
 
-                match math_mgr.edit_and_compile(true, terminal, editor, inkscape_mode, styles) {
+                match math_mgr.edit_and_compile(
+                    true,
+                    terminal,
+                    editor,
+                    inkscape_mode,
+                    styles,
+                    Some(self.config.terminal_class_name.clone()),
+                ) {
                     Ok(_svg) => {
                         // Payload is already copied to clipboard inside edit_and_compile
                         if let Err(e) = self.press('v' as u32, CONTROL_MASK) {

@@ -32,6 +32,7 @@ impl MathMacroManager {
         editor: &str,
         editor_mode: &String,
         styles: &StylesConfig,
+        terminal_class_name: Option<String>,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let input_file = self.figures_tmp_dir.join("math_input.tex");
         let master_file = self.figures_tmp_dir.join("master.tex");
@@ -47,6 +48,7 @@ impl MathMacroManager {
             terminal,
             editor,
             editor_mode,
+            terminal_class_name.as_ref(),
         );
 
         let raw_content = fs::read_to_string(&input_file)?;

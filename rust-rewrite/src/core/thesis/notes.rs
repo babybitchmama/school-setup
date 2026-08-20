@@ -80,6 +80,7 @@ pub fn create_note(
             &config.terminal,
             &config.editor,
             &String::from("n"),
+            None,
         );
     } else if actual_style == "folder" {
         let folder_dir = target_dir.join(&base_name);
@@ -107,6 +108,7 @@ pub fn create_note(
             &config.terminal,
             &config.editor,
             &String::from("n"),
+            None,
         );
     }
 }
@@ -217,6 +219,7 @@ fn interactive_navigate(
                     &config.terminal,
                     &config.editor,
                     &String::from("n"),
+                    None,
                 );
             }
         } else {
@@ -278,6 +281,7 @@ fn handle_interactive_creation(
             &config.terminal,
             &config.editor,
             &String::from("n"),
+            None,
         );
     } else if actual_style == "folder" {
         let folder_dir = current_dir.join(&base_name);
