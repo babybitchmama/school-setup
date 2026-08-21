@@ -744,6 +744,7 @@ impl Manager {
                         // Payload is already copied to clipboard inside edit_and_compile
                         if let Err(e) = self.press('v' as u32, CONTROL_MASK) {
                             println!("Failed to send paste event to Inkscape window: {}", e);
+
                         }
                     }
                     Err(e) => println!("Math macro error: {}", e),
