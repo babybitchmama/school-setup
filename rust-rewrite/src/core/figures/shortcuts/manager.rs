@@ -268,6 +268,16 @@ impl Manager {
             return;
         };
 
+        self.apply_named_style(&style_name);
+    }
+
+    /// Copies whatever's currently selected, resolves `style_name`'s saved
+    /// style for that shape's type, and pastes it as a style
+    /// (Ctrl+Shift+V so it remixes onto the selection rather than
+    /// inserting new geometry). Shared by the rofi-driven
+    /// `apply-custom-style` action and the numbered `custom_styles`
+    /// shortcuts in styles.yaml (`1: "style-01"`, etc.).
+    fn apply_named_style(&self, style_name: &str) {
         // Grab the current selection's real markup via a genuine copy, so
         // we can tell what type of object is selected. The sleep gives the
         // X clipboard a moment to actually update before we read it back.
@@ -285,7 +295,7 @@ impl Manager {
             }
         };
 
-        match super::custom_styles::apply::resolve_style_svg(&style_name, &copied) {
+        match super::custom_styles::apply::resolve_style_svg(style_name, &copied) {
             Ok(style_svg) => {
                 if let Err(e) = super::clipboard::copy(&style_svg) {
                     println!("Failed to copy resolved style to clipboard: {}", e);
@@ -547,6 +557,7 @@ impl Manager {
 
                     let matched_action = styles.find_action(&action_key);
                     let is_toggle = matched_action.is_some_and(|a| a.name == "toggle-daemon");
+                    println!("{:?}", styles.custom_styles);
 
                     if is_toggle {
                         active = !active;
@@ -560,6 +571,17 @@ impl Manager {
                         self.passthrough(&pressed_raw);
                     } else if let Some(action) = matched_action {
                         self.run_action(action, styles);
+                    } else if let Some(style_name) = styles.custom_styles.get(&action_key) {
+                        println!("Hello");
+                        // Numbered custom-style shortcut, e.g. a bare `1`
+                        // resolving to "style-01" -- same underlying flow
+                        // as `apply-custom-style`, just skipping the rofi
+                        // picker since the name's already fixed.
+                        self.apply_named_style(style_name);
+                    } else if let Some(object_name) = styles.custom_objects.get(&action_key) {
+                        // Numbered custom-object shortcut, e.g. `shift+1`
+                        // resolving to "object-01".
+                        self.apply_named_object(object_name);
                     } else {
                         let handled_by_item = pressed.len() == 1 && {
                             let ch = pressed[0].chars().next().unwrap();
@@ -630,7 +652,17 @@ impl Manager {
             return;
         };
 
-        let svg_content = match super::custom_objects::read_object_svg(&object_name) {
+        self.apply_named_object(&object_name);
+    }
+
+    /// Copies `object_name`'s saved SVG verbatim onto the clipboard and
+    /// pastes it as new geometry (plain Ctrl+V, not Ctrl+Shift+V -- an
+    /// object is inserted whole, not remixed onto a selection). Shared by
+    /// the rofi-driven `apply-custom-object` action and the numbered
+    /// `custom_objects` shortcuts in styles.yaml (`shift+1: "object-01"`,
+    /// etc.).
+    fn apply_named_object(&self, object_name: &str) {
+        let svg_content = match super::custom_objects::read_object_svg(object_name) {
             Ok(content) => content,
             Err(e) => {
                 println!("Failed to read object '{}': {}", object_name, e);
