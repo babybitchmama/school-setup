@@ -12,7 +12,7 @@ use yaml::load_file;
 
 use core::assignments;
 use core::books;
-// use core::calendar;
+use core::calendar;
 use core::courses;
 use core::notes;
 
@@ -102,7 +102,7 @@ fn main() {
 
     match &cli.command {
         Commands::Calendar => {
-            println!("Hooking into calendar...");
+            calendar::main(&config);
         }
         Commands::InitCourses => {
             println!("Initializing course directories...");
